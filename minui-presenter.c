@@ -639,11 +639,11 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
         char time_left_str[1024];
         if (time_left == 1)
         {
-            snprintf(time_left_str, sizeof(time_left_str), "time left: %d second", time_left);
+            snprintf(time_left_str, sizeof(time_left_str), "Time left: %d second", time_left);
         }
         else
         {
-            snprintf(time_left_str, sizeof(time_left_str), "time left: %d seconds", time_left);
+            snprintf(time_left_str, sizeof(time_left_str), "Time left: %d seconds", time_left);
         }
 
         SDL_Surface *text = TTF_RenderUTF8_Blended(state->fonts.small, time_left_str, COLOR_WHITE);
