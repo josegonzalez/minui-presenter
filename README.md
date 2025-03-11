@@ -116,3 +116,11 @@ When using `--file`, the JSON should follow this format:
 - `background_color`: (default: `#000000`) Hex color code for background
 - `show_pill`: (default: `false`) Whether to show a pill around the text
 - `alignment`: (default: `middle`) Message alignment ("top", "middle", "bottom")
+
+## Screenshots
+
+| Name                          | Image                                                                 |
+|-------------------------------|-----------------------------------------------------------------------|
+| Fullscreen image with Actions | <img src="screenshots/fullscreen-image-with-actions.png" width=240 /> |
+| Scaled image with Actions     | <img src="screenshots/image-with-actions-scaled.png" width=240 />     |
+| Message with Timeout          | <img src="screenshots/message-with-timeout.png" width=240 />          |
