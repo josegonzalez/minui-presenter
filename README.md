@@ -1,6 +1,6 @@
-# minui message
+# minui presenter
 
-This is a minui message app. It allows displaying messages on the screen.
+This is a minui presentation app. It allows displaying messages on the screen with background colors and images.
 
 ## Requirements
 
