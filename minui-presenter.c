@@ -34,6 +34,7 @@ enum list_result_t
     ExitCodeCancelButton = 2,
     ExitCodeMenuButton = 3,
     ExitCodeActionButton = 4,
+    ExitCodeInactionButton = 5,
     ExitCodeStartButton = 6,
     ExitCodeTimeout = 124,
     ExitCodeKeyboardInterrupt = 130,
@@ -130,6 +131,12 @@ struct AppState
     bool cancel_show;
     // the text to display on the Cancel button
     char cancel_text[1024];
+    // the button to display on the Inaction button
+    char inaction_button[1024];
+    // whether to show the Inaction button
+    bool inaction_show;
+    // the text to display on the Inaction button
+    char inaction_text[1024];
     // the path to the JSON file
     char file[1024];
     // the seconds to display the message for before timing out
@@ -302,6 +309,7 @@ void handle_input(struct AppState *state)
     bool is_action_button_pressed = false;
     bool is_confirm_button_pressed = false;
     bool is_cancel_button_pressed = false;
+    bool is_inaction_button_pressed = false;
     if (PAD_justReleased(BTN_A))
     {
         if (strcmp(state->action_button, "A") == 0)
@@ -315,6 +323,10 @@ void handle_input(struct AppState *state)
         else if (strcmp(state->cancel_button, "A") == 0)
         {
             is_cancel_button_pressed = true;
+        }
+        else if (strcmp(state->inaction_button, "A") == 0)
+        {
+            is_inaction_button_pressed = true;
         }
     }
     else if (PAD_justReleased(BTN_B))
@@ -331,6 +343,10 @@ void handle_input(struct AppState *state)
         {
             is_cancel_button_pressed = true;
         }
+        else if (strcmp(state->inaction_button, "B") == 0)
+        {
+            is_inaction_button_pressed = true;
+        }
     }
     else if (PAD_justReleased(BTN_X))
     {
@@ -346,6 +362,10 @@ void handle_input(struct AppState *state)
         {
             is_cancel_button_pressed = true;
         }
+        else if (strcmp(state->inaction_button, "X") == 0)
+        {
+            is_inaction_button_pressed = true;
+        }
     }
     else if (PAD_justReleased(BTN_Y))
     {
@@ -360,6 +380,10 @@ void handle_input(struct AppState *state)
         else if (strcmp(state->cancel_button, "Y") == 0)
         {
             is_cancel_button_pressed = true;
+        }
+        else if (strcmp(state->inaction_button, "Y") == 0)
+        {
+            is_inaction_button_pressed = true;
         }
     }
 
@@ -384,6 +408,14 @@ void handle_input(struct AppState *state)
         state->redraw = 0;
         state->quitting = 1;
         state->exit_code = ExitCodeCancelButton;
+        return;
+    }
+
+    if (is_inaction_button_pressed)
+    {
+        state->redraw = 0;
+        state->quitting = 1;
+        state->exit_code = ExitCodeInactionButton;
         return;
     }
 
@@ -667,7 +699,18 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
     }
     if (state->action_show && strcmp(state->action_button, "") != 0)
     {
-        GFX_blitButtonGroup((char *[]){state->action_button, state->action_text, NULL}, 0, screen, 0);
+        if (state->inaction_show && strcmp(state->inaction_button, "") != 0)
+        {
+            GFX_blitButtonGroup((char *[]){state->inaction_button, state->inaction_text, state->action_button, state->action_text, NULL}, 0, screen, 0);
+        }
+        else
+        {
+            GFX_blitButtonGroup((char *[]){state->action_button, state->action_text, NULL}, 0, screen, 0);
+        }
+    }
+    else if (state->inaction_show && strcmp(state->inaction_button, "") != 0)
+    {
+        GFX_blitButtonGroup((char *[]){state->inaction_button, state->inaction_text, NULL}, 0, screen, 0);
     }
 
     // don't forget to reset the should_redraw flag
@@ -698,6 +741,9 @@ void signal_handler(int signal)
 // - --cancel-button <button> (default: "B")
 // - --cancel-text <text> (default: "BACK")
 // - --cancel-show (default: false)
+// - --inaction-button <button> (default: empty string)
+// - --inaction-text <text> (default: "OTHER")
+// - --inaction-show (default: false)
 // - --file <path> (default: empty string)
 // - --item-key <key> (default: "items")
 // - --message <message> (default: empty string)
@@ -716,6 +762,8 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         {"confirm-text", required_argument, 0, 'c'},
         {"cancel-button", required_argument, 0, 'B'},
         {"cancel-text", required_argument, 0, 'C'},
+        {"inaction-button", required_argument, 0, 'I'},
+        {"inaction-text", required_argument, 0, 'i'},
         {"file", required_argument, 0, 'd'},
         {"font-default", required_argument, 0, 'f'},
         {"font-size-default", required_argument, 0, 'F'},
@@ -726,15 +774,16 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         {"show-time-left", no_argument, 0, 'T'},
         {"timeout", required_argument, 0, 't'},
         {"confirm-show", no_argument, 0, 'W'},
-        {"action-show", no_argument, 0, 'Y'},
         {"cancel-show", no_argument, 0, 'X'},
+        {"action-show", no_argument, 0, 'Y'},
+        {"inaction-show", no_argument, 0, 'Z'},
         {0, 0, 0, 0}};
 
     int opt;
     char *font_path = NULL;
     char message[1024];
     char alignment[1024];
-    while ((opt = getopt_long(argc, argv, "a:A:b:c:B:C:d:f:F:K:m:M:S:TWYX", long_options, NULL)) != -1)
+    while ((opt = getopt_long(argc, argv, "a:A:b:c:B:C:d:f:F:i:I:K:m:M:S:t:TWYXZ", long_options, NULL)) != -1)
     {
         switch (opt)
         {
@@ -765,6 +814,12 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         case 'F':
             state->fonts.size = atoi(optarg);
             break;
+        case 'i':
+            strncpy(state->inaction_text, optarg, sizeof(state->inaction_text) - 1);
+            break;
+        case 'I':
+            strncpy(state->inaction_button, optarg, sizeof(state->inaction_button) - 1);
+            break;
         case 'K':
             strncpy(state->item_key, optarg, sizeof(state->item_key) - 1);
             break;
@@ -791,6 +846,9 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
             break;
         case 'X':
             state->action_show = true;
+            break;
+        case 'Z':
+            state->inaction_show = true;
             break;
         default:
             return false;
@@ -904,11 +962,17 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         strncpy(state->cancel_text, "BACK", sizeof(state->cancel_text) - 1);
     }
 
+    if (strcmp(state->inaction_text, "") == 0)
+    {
+        strncpy(state->inaction_text, "OTHER", sizeof(state->inaction_text) - 1);
+    }
+
     // validate that hardware buttons aren't assigned to more than once
     bool a_button_assigned = false;
     bool b_button_assigned = false;
     bool x_button_assigned = false;
     bool y_button_assigned = false;
+    bool i_button_assigned = false;
     if (strcmp(state->action_button, "A") == 0)
     {
         a_button_assigned = true;
@@ -924,6 +988,16 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         a_button_assigned = true;
     }
     if (strcmp(state->confirm_button, "A") == 0)
+    {
+        if (a_button_assigned)
+        {
+            log_error("A button cannot be assigned to more than one button");
+            return false;
+        }
+
+        a_button_assigned = true;
+    }
+    if (strcmp(state->inaction_button, "A") == 0)
     {
         if (a_button_assigned)
         {
@@ -958,6 +1032,16 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
 
         b_button_assigned = true;
     }
+    if (strcmp(state->inaction_button, "B") == 0)
+    {
+        if (b_button_assigned)
+        {
+            log_error("B button cannot be assigned to more than one button");
+            return false;
+        }
+
+        b_button_assigned = true;
+    }
 
     if (strcmp(state->action_button, "X") == 0)
     {
@@ -983,6 +1067,16 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
 
         x_button_assigned = true;
     }
+    if (strcmp(state->inaction_button, "X") == 0)
+    {
+        if (x_button_assigned)
+        {
+            log_error("X button cannot be assigned to more than one button");
+            return false;
+        }
+
+        x_button_assigned = true;
+    }
 
     if (strcmp(state->action_button, "Y") == 0)
     {
@@ -999,6 +1093,16 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         y_button_assigned = true;
     }
     if (strcmp(state->confirm_button, "Y") == 0)
+    {
+        if (y_button_assigned)
+        {
+            log_error("Y button cannot be assigned to more than one button");
+            return false;
+        }
+
+        y_button_assigned = true;
+    }
+    if (strcmp(state->inaction_button, "Y") == 0)
     {
         if (y_button_assigned)
         {
@@ -1089,6 +1193,8 @@ int main(int argc, char *argv[])
     char default_cancel_text[1024] = "BACK";
     char default_confirm_button[1024] = "A";
     char default_confirm_text[1024] = "SELECT";
+    char default_inaction_button[1024] = "";
+    char default_inaction_text[1024] = "OTHER";
     char default_file[1024] = "";
     char default_item_key[1024] = "items";
     char default_message[1024] = "";
@@ -1106,6 +1212,7 @@ int main(int argc, char *argv[])
         .action_show = false,
         .confirm_show = false,
         .cancel_show = false,
+        .inaction_show = false,
         .show_time_left = false,
         .items_state = NULL,
         .start_time = 0,
@@ -1118,6 +1225,8 @@ int main(int argc, char *argv[])
     strncpy(state.cancel_text, default_cancel_text, sizeof(state.cancel_text) - 1);
     strncpy(state.confirm_button, default_confirm_button, sizeof(state.confirm_button) - 1);
     strncpy(state.confirm_text, default_confirm_text, sizeof(state.confirm_text) - 1);
+    strncpy(state.inaction_button, default_inaction_button, sizeof(state.inaction_button) - 1);
+    strncpy(state.inaction_text, default_inaction_text, sizeof(state.inaction_text) - 1);
     strncpy(state.file, default_file, sizeof(state.file) - 1);
     strncpy(state.item_key, default_item_key, sizeof(state.item_key) - 1);
 
