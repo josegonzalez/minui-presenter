@@ -253,6 +253,12 @@ struct ItemsState *ItemsState_New(const char *filename, const char *item_key)
     }
 
     size_t item_count = json_array_get_count(items);
+    if (item_count == 0)
+    {
+        json_value_free(root_value);
+        return NULL;
+    }
+
     state->items = malloc(sizeof(struct Item) * item_count);
 
     for (size_t i = 0; i < item_count; i++)
