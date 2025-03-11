@@ -281,6 +281,7 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
         GFX_blitButtonGroup((char *[]){state->cancel_button, state->cancel_text, NULL}, 1, screen, 1);
     }
 
+    int initial_padding = 0;
     if (state->show_time_left && state->timeout_seconds > 0)
     {
         struct timeval current_time;
@@ -309,6 +310,8 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
             text->w,
             text->h};
         SDL_BlitSurface(text, NULL, screen, &pos);
+
+        initial_padding = text->h + SCALE1(PADDING);
     }
 
     int message_padding = SCALE1(PADDING + BUTTON_PADDING);
@@ -389,12 +392,13 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
     int current_message_y = (screen->h - messages_height) / 2;
     if (display_state->message_alignment == MessageAlignmentTop)
     {
-        current_message_y = SCALE1(PADDING);
+        current_message_y = SCALE1(PADDING) + initial_padding;
     }
     else if (display_state->message_alignment == MessageAlignmentBottom)
     {
-        current_message_y = screen->h - messages_height - SCALE1(PADDING);
+        current_message_y = screen->h - messages_height - SCALE1(PADDING) - initial_padding;
     }
+
     for (int i = 0; i <= message_count; i++)
     {
         char *message = messages[i].message;
@@ -443,12 +447,13 @@ void signal_handler(int signal)
 // - --cancel-button <button> (default: "B")
 // - --cancel-text <text> (default: "BACK")
 // - --cancel-show (default: false)
-// - --timeout <seconds> (default: 1)
 // - --message <message> (default: empty string)
+// - --message-alignment <alignment> (default: middle)
 // - --font <path> (default: empty string)
 // - --font-size <size> (default: FONT_LARGE)
 // - --show-hardware-group (default: 0)
 // - --show-time-left (default: false)
+// - --timeout <seconds> (default: 1)
 bool parse_arguments(struct AppState *state, int argc, char *argv[])
 {
     static struct option long_options[] = {
@@ -462,6 +467,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         {"cancel-text", required_argument, 0, 'C'},
         {"cancel-show", no_argument, 0, 'Z'},
         {"message", required_argument, 0, 'm'},
+        {"message-alignment", required_argument, 0, 'M'},
         {"font-default", required_argument, 0, 'f'},
         {"font-size-default", required_argument, 0, 'F'},
         {"show-hardware-group", no_argument, 0, 'S'},
@@ -472,7 +478,8 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
     int opt;
     char *font_path = NULL;
     char message[1024];
-    while ((opt = getopt_long(argc, argv, "a:A:b:c:B:C:d:m:f:F:S:TYXZ", long_options, NULL)) != -1)
+    char message_alignment[1024];
+    while ((opt = getopt_long(argc, argv, "a:A:b:c:B:C:d:f:F:m:M:S:TYXZ", long_options, NULL)) != -1)
     {
         switch (opt)
         {
@@ -503,11 +510,14 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         case 'm':
             strncpy(message, optarg, sizeof(message) - 1);
             break;
-        case 't':
-            state->timeout_seconds = atoi(optarg);
+        case 'M':
+            strncpy(message_alignment, optarg, sizeof(message_alignment) - 1);
             break;
         case 'S':
             state->show_hardware_group = 1;
+            break;
+        case 't':
+            state->timeout_seconds = atoi(optarg);
             break;
         case 'T':
             state->show_time_left = true;
@@ -532,6 +542,24 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         strncpy(state->display_states[0].background_image, "", 0);
         state->display_states[0].background_color = 0;
         state->display_states[0].message_alignment = MessageAlignmentMiddle;
+    }
+
+    if (strcmp(message_alignment, "top") == 0)
+    {
+        state->display_states[0].message_alignment = MessageAlignmentTop;
+    }
+    else if (strcmp(message_alignment, "bottom") == 0)
+    {
+        state->display_states[0].message_alignment = MessageAlignmentBottom;
+    }
+    else if (strcmp(message_alignment, "middle") == 0)
+    {
+        state->display_states[0].message_alignment = MessageAlignmentMiddle;
+    }
+    else
+    {
+        log_error("Invalid message alignment provided");
+        return false;
     }
 
     if (font_path != NULL)
