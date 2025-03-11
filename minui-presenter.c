@@ -1,8 +1,10 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <msettings.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <sys/time.h>
 #include <unistd.h>
 #ifdef USE_SDL2
 #include <SDL2/SDL_ttf.h>
