@@ -268,7 +268,7 @@ struct ItemsState *ItemsState_New(const char *filename, const char *item_key)
         state->items[i].text = text ? strdup(text) : "";
 
         const char *background_image = json_object_get_string(item, "background_image");
-        state->items[i].background_image = background_image ? strdup(background_image) : "";
+        state->items[i].background_image = background_image ? strdup(background_image) : NULL;
 
         const char *background_color = json_object_get_string(item, "background_color");
         state->items[i].background_color = background_color ? strdup(background_color) : "#000000";
@@ -925,28 +925,32 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
 
     if (strlen(message) > 0)
     {
-        state->items_state = malloc(sizeof(struct ItemsState) * 1);
-        strncpy(state->items_state->items[0].text, message, sizeof(message) - 1);
-        strncpy(state->items_state->items[0].background_image, "", 0);
-        state->items_state->items[0].show_pill = false;
-        state->items_state->items[0].background_color = 0;
+        struct ItemsState *items_state = malloc(sizeof(struct ItemsState));
+        items_state->items = malloc(sizeof(struct Item) * 1);
+        items_state->items[0].text = strdup(message);
+        items_state->items[0].background_image = NULL;
+        items_state->items[0].show_pill = false;
+        items_state->items[0].background_color = 0;
         if (strcmp(alignment, "top") == 0)
         {
-            state->items_state->items[0].alignment = MessageAlignmentTop;
+            items_state->items[0].alignment = MessageAlignmentTop;
         }
         else if (strcmp(alignment, "bottom") == 0)
         {
-            state->items_state->items[0].alignment = MessageAlignmentBottom;
+            items_state->items[0].alignment = MessageAlignmentBottom;
         }
-        else if (strcmp(alignment, "middle") == 0)
+        else if (strcmp(alignment, "middle") == 0 || strcmp(alignment, "") == 0)
         {
-            state->items_state->items[0].alignment = MessageAlignmentMiddle;
+            items_state->items[0].alignment = MessageAlignmentMiddle;
         }
         else
         {
             log_error("Invalid message alignment provided");
             return false;
         }
+        items_state->item_count = 1;
+        items_state->selected = 0;
+        state->items_state = items_state;
     }
     else if (strcmp(state->file, "") != 0)
     {
@@ -1388,10 +1392,6 @@ int main(int argc, char *argv[])
     }
 
     swallow_stdout_from_function(destruct);
-
-    char buf[1024];
-    snprintf(buf, sizeof(buf), "%d", state.items_state->selected);
-    log_info(buf);
 
     // exit the program
     return state.exit_code;
