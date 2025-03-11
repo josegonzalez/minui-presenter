@@ -70,6 +70,9 @@ minui-presenter --message "The quick brown fox jumps over the lazy dog"
 
 ### Button Values
 
+> [!NOTE]
+> Each hardware button can only be assigned once.
+
 Valid button assignments are:
 
 - `A`: A button
@@ -77,7 +80,7 @@ Valid button assignments are:
 - `X`: X button
 - `Y`: Y button
 
-Note: Each hardware button can only be assigned once.
+When an assigned button is pressed, minui-presenter will exit with the appropriate exit code.
 
 ## Exit Codes
 
