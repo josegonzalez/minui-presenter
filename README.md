@@ -109,6 +109,8 @@ When using `--file`, the JSON should follow this format:
 }
 ```
 
+When multiple items are displayed, the list can be scrolled using the `LEFT` AND `RIGHT` buttons.
+
 ### Item Properties
 
 - `text`: The message to display
