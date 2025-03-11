@@ -490,6 +490,55 @@ SDL_Color hex_to_sdl_color(const char *hex)
     return color;
 }
 
+// scale_surface manually scales a surface to a new width and height for SDL1
+SDL_Surface *scale_surface(SDL_Surface *surface,
+                           Uint16 width, Uint16 height)
+{
+    SDL_Surface *scaled = SDL_CreateRGBSurface(surface->flags,
+                                               width,
+                                               height,
+                                               surface->format->BitsPerPixel,
+                                               surface->format->Rmask,
+                                               surface->format->Gmask,
+                                               surface->format->Bmask,
+                                               surface->format->Amask);
+
+    int bpp = surface->format->BytesPerPixel;
+    int *v = (int *)malloc(bpp * sizeof(int));
+
+    for (int x = 0; x < width; x++)
+    {
+        for (int y = 0; y < height; y++)
+        {
+            int xo1 = x * surface->w / width;
+            int xo2 = MAX((x + 1) * surface->w / width, xo1 + 1);
+            int yo1 = y * surface->h / height;
+            int yo2 = MAX((y + 1) * surface->h / height, yo1 + 1);
+            int n = (xo2 - xo1) * (yo2 - yo1);
+
+            for (int i = 0; i < bpp; i++)
+                v[i] = 0;
+
+            for (int xo = xo1; xo < xo2; xo++)
+                for (int yo = yo1; yo < yo2; yo++)
+                {
+                    Uint8 *ps =
+                        (Uint8 *)surface->pixels + yo * surface->pitch + xo * bpp;
+                    for (int i = 0; i < bpp; i++)
+                        v[i] += ps[i];
+                }
+
+            Uint8 *pd = (Uint8 *)scaled->pixels + y * scaled->pitch + x * bpp;
+            for (int i = 0; i < bpp; i++)
+                pd[i] = v[i] / n;
+        }
+    }
+
+    free(v);
+
+    return scaled;
+}
+
 // draw_screen interprets the app state and draws it to the screen
 void draw_screen(SDL_Surface *screen, struct AppState *state)
 {
@@ -539,7 +588,20 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
 
             // Compute destination rectangle
             SDL_Rect dstRect = {dstX, dstY, dstW, dstH};
+#ifdef USE_SDL2
             SDL_BlitScaled(surface, NULL, screen, &dstRect);
+#else
+            if (imgW == FIXED_WIDTH && imgH == FIXED_HEIGHT)
+            {
+                SDL_BlitSurface(surface, NULL, screen, &dstRect);
+            }
+            else
+            {
+                SDL_Surface *scaled = scale_surface(surface, dstW, dstH);
+                SDL_BlitSurface(scaled, NULL, screen, &dstRect);
+                SDL_FreeSurface(scaled);
+            }
+#endif
             SDL_FreeSurface(surface);
         }
     }
