@@ -77,7 +77,7 @@ enum MessageAlignment
 struct Item
 {
     // the background color to use for the list
-    int background_color;
+    char *background_color;
     // path to the background image to use for the list
     char *background_image;
     // the text to display
@@ -254,7 +254,7 @@ struct ItemsState *ItemsState_New(const char *filename, const char *item_key)
         state->items[i].background_image = background_image ? strdup(background_image) : "";
 
         const char *background_color = json_object_get_string(item, "background_color");
-        state->items[i].background_color = background_color ? atoi(background_color) : 0;
+        state->items[i].background_color = background_color ? strdup(background_color) : "#000000";
 
         const char *alignment = json_object_get_string(item, "alignment");
         if (strcmp(alignment, "top") == 0)
@@ -445,6 +445,17 @@ SDL_Color hex_to_sdl_color(const char *hex)
 // draw_screen interprets the app state and draws it to the screen
 void draw_screen(SDL_Surface *screen, struct AppState *state)
 {
+    // render a background color
+    char hex_color[1024] = "#000000";
+    if (state->items_state->items[state->items_state->selected].background_color != NULL)
+    {
+        strncpy(hex_color, state->items_state->items[state->items_state->selected].background_color, sizeof(hex_color) - 1);
+    }
+
+    SDL_Color background_color = hex_to_sdl_color(hex_color);
+    uint32_t color = SDL_MapRGBA(screen->format, background_color.r, background_color.g, background_color.b, 255);
+    SDL_FillRect(screen, NULL, color);
+
     // draw the button group on the button-right
     // only two buttons can be displayed at a time
     if (state->confirm_show)
