@@ -62,6 +62,25 @@ struct Fonts
     TTF_Font *medium;
 };
 
+enum MessageAlignment
+{
+    MessageAlignmentTop,
+    MessageAlignmentMiddle,
+    MessageAlignmentBottom,
+};
+
+struct DisplayState
+{
+    // the background color to use for the list
+    int background_color;
+    // path to the background image to use for the list
+    char background_image[1024];
+    // the message to display
+    char message[1024];
+    // the alignment of the message
+    enum MessageAlignment message_alignment;
+};
+
 // AppState holds the current state of the application
 struct AppState
 {
@@ -91,14 +110,16 @@ struct AppState
     bool cancel_show;
     // the text to display on the Cancel button
     char cancel_text[1024];
-    // the message to display
-    char message[1024];
     // the seconds to display the message for before timing out
     int sleep_timeout_seconds;
     // whether to show the time left
     bool show_time_left;
+    // current display state index
+    int current_display_state_index;
     // the fonts to use for the list
     struct Fonts fonts;
+    // the display states
+    struct DisplayState display_states[1024];
 };
 
 // handle_input interprets input events and mutates app state
@@ -256,11 +277,13 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
 
     int message_padding = SCALE1(PADDING + BUTTON_PADDING);
 
+    struct DisplayState *display_state = &state->display_states[state->current_display_state_index];
+
     // get the width and height of every word in the message
     struct Message words[1024];
     int word_count = 0;
     char original_message[1024];
-    strncpy(original_message, state->message, sizeof(original_message) - 1);
+    strncpy(original_message, display_state->message, sizeof(original_message) - 1);
     char *word = strtok(original_message, " ");
     int word_height = 0;
     while (word != NULL)
@@ -326,7 +349,16 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
     }
 
     int messages_height = (current_message_index + 1) * word_height + (SCALE1(PADDING) * current_message_index);
+    // default to the middle of the screen
     int current_message_y = (screen->h - messages_height) / 2;
+    if (display_state->message_alignment == MessageAlignmentTop)
+    {
+        current_message_y = SCALE1(PADDING);
+    }
+    else if (display_state->message_alignment == MessageAlignmentBottom)
+    {
+        current_message_y = screen->h - messages_height - SCALE1(PADDING);
+    }
     for (int i = 0; i <= message_count; i++)
     {
         char *message = messages[i].message;
@@ -403,6 +435,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
 
     int opt;
     char *font_path = NULL;
+    char message[1024];
     while ((opt = getopt_long(argc, argv, "a:A:b:c:B:C:d:m:f:F:S:TYXZ", long_options, NULL)) != -1)
     {
         switch (opt)
@@ -432,7 +465,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
             state->fonts.size = atoi(optarg);
             break;
         case 'm':
-            strncpy(state->message, optarg, sizeof(state->message) - 1);
+            strncpy(message, optarg, sizeof(message) - 1);
             break;
         case 's':
             state->sleep_timeout_seconds = atoi(optarg);
@@ -455,6 +488,14 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         default:
             return false;
         }
+    }
+
+    if (message != NULL)
+    {
+        strncpy(state->display_states[0].message, message, sizeof(message) - 1);
+        strncpy(state->display_states[0].background_image, "", 0);
+        state->display_states[0].background_color = 0;
+        state->display_states[0].message_alignment = MessageAlignmentMiddle;
     }
 
     if (font_path != NULL)
@@ -625,7 +666,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         return false;
     }
 
-    if (strlen(state->message) == 0)
+    if (strlen(message) == 0)
     {
         log_error("No message provided");
         return false;
@@ -714,6 +755,8 @@ int main(int argc, char *argv[])
         .action_show = false,
         .confirm_show = false,
         .cancel_show = false,
+        .current_display_state_index = 0,
+        .display_states = {},
     };
 
     // assign the default values to the app state
@@ -723,7 +766,6 @@ int main(int argc, char *argv[])
     strncpy(state.cancel_text, default_cancel_text, sizeof(state.cancel_text) - 1);
     strncpy(state.confirm_button, default_confirm_button, sizeof(state.confirm_button) - 1);
     strncpy(state.confirm_text, default_confirm_text, sizeof(state.confirm_text) - 1);
-    strncpy(state.message, default_message, sizeof(state.message) - 1);
 
     // parse the arguments
     if (!parse_arguments(&state, argc, argv))
