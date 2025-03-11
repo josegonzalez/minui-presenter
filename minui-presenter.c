@@ -1,6 +1,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <msettings.h>
+#include <parson/parson.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -73,16 +74,27 @@ enum MessageAlignment
     MessageAlignmentBottom,
 };
 
-struct DisplayState
+struct Item
 {
     // the background color to use for the list
     int background_color;
     // path to the background image to use for the list
-    char background_image[1024];
-    // the message to display
-    char message[1024];
-    // the alignment of the message
-    enum MessageAlignment message_alignment;
+    char *background_image;
+    // the text to display
+    char *text;
+    // the alignment of the text
+    enum MessageAlignment alignment;
+};
+
+// ItemsState holds the state of the list
+struct ItemsState
+{
+    // array of display items
+    struct Item *items;
+    // number of items in the list
+    size_t item_count;
+    // index of currently selected item
+    int selected;
 };
 
 // AppState holds the current state of the application
@@ -114,19 +126,163 @@ struct AppState
     bool cancel_show;
     // the text to display on the Cancel button
     char cancel_text[1024];
+    // the path to the JSON file
+    char file[1024];
     // the seconds to display the message for before timing out
     int timeout_seconds;
     // whether to show the time left
     bool show_time_left;
-    // current display state index
-    int current_display_state_index;
+    // the key to the items array in the JSON file
+    char item_key[1024];
     // the start time of the presentation
     struct timeval start_time;
     // the fonts to use for the list
     struct Fonts fonts;
     // the display states
-    struct DisplayState display_states[1024];
+    struct ItemsState *items_state;
 };
+
+struct Message
+{
+    char message[1024];
+    int width;
+};
+
+void strtrim(char *s)
+{
+    char *p = s;
+    int l = strlen(p);
+
+    if (l == 0)
+    {
+        return;
+    }
+
+    while (isspace(p[l - 1]))
+    {
+        p[--l] = 0;
+    }
+
+    while (*p && isspace(*p))
+    {
+        ++p;
+        --l;
+    }
+
+    memmove(s, p, l + 1);
+}
+
+char *read_stdin()
+{
+    // Read all of stdin into a string
+    char *stdin_contents = NULL;
+    size_t stdin_size = 0;
+    size_t stdin_used = 0;
+    char buffer[4096];
+    size_t bytes_read;
+
+    while ((bytes_read = fread(buffer, 1, sizeof(buffer), stdin)) > 0)
+    {
+        if (stdin_contents == NULL)
+        {
+            stdin_size = bytes_read * 2;
+            stdin_contents = malloc(stdin_size);
+        }
+        else if (stdin_used + bytes_read > stdin_size)
+        {
+            stdin_size *= 2;
+            stdin_contents = realloc(stdin_contents, stdin_size);
+        }
+
+        memcpy(stdin_contents + stdin_used, buffer, bytes_read);
+        stdin_used += bytes_read;
+    }
+
+    // Null terminate the string
+    if (stdin_contents)
+    {
+        if (stdin_used == stdin_size)
+        {
+            stdin_contents = realloc(stdin_contents, stdin_size + 1);
+        }
+        stdin_contents[stdin_used] = '\0';
+    }
+
+    return stdin_contents;
+}
+
+// hydrate_display_states hydrates the display states from a file or stdin
+struct ItemsState *ItemsState_New(const char *filename, const char *item_key)
+{
+    struct ItemsState *state = malloc(sizeof(struct ItemsState));
+
+    JSON_Value *root_value;
+    if (strcmp(filename, "-") == 0)
+    {
+        char *contents = read_stdin();
+        if (contents == NULL)
+        {
+            log_error("Failed to read stdin");
+            return NULL;
+        }
+
+        root_value = json_parse_string_with_comments(contents);
+        free(contents);
+    }
+    else
+    {
+        root_value = json_parse_file_with_comments(filename);
+    }
+
+    JSON_Array *items = json_value_get_array(json_object_get_value(json_value_get_object(root_value), item_key));
+    if (items == NULL)
+    {
+        json_value_free(root_value);
+        return NULL;
+    }
+
+    size_t item_count = json_array_get_count(items);
+    state->items = malloc(sizeof(struct Item) * item_count);
+
+    for (size_t i = 0; i < item_count; i++)
+    {
+        JSON_Object *item = json_array_get_object(items, i);
+        const char *text = json_object_get_string(item, "text");
+        state->items[i].text = text ? strdup(text) : "";
+
+        const char *background_image = json_object_get_string(item, "background_image");
+        state->items[i].background_image = background_image ? strdup(background_image) : "";
+
+        const char *background_color = json_object_get_string(item, "background_color");
+        state->items[i].background_color = background_color ? atoi(background_color) : 0;
+
+        const char *alignment = json_object_get_string(item, "alignment");
+        if (strcmp(alignment, "top") == 0)
+        {
+            state->items[i].alignment = MessageAlignmentTop;
+        }
+        else if (strcmp(alignment, "bottom") == 0)
+        {
+            state->items[i].alignment = MessageAlignmentBottom;
+        }
+        else if (strcmp(alignment, "middle") == 0)
+        {
+            state->items[i].alignment = MessageAlignmentMiddle;
+        }
+        else
+        {
+            log_error("Invalid alignment provided");
+            json_value_free(root_value);
+            return NULL;
+        }
+    }
+
+    state->item_count = item_count;
+    state->selected = 0;
+
+    json_value_free(root_value);
+    return state;
+}
 
 // handle_input interprets input events and mutates app state
 void handle_input(struct AppState *state)
@@ -228,36 +384,62 @@ void handle_input(struct AppState *state)
         state->exit_code = ExitCodeStartButton;
         return;
     }
+
+    if (PAD_justRepeated(BTN_LEFT))
+    {
+        if (state->items_state->selected == 0 && !PAD_justPressed(BTN_LEFT))
+        {
+            state->redraw = 0;
+        }
+        else
+        {
+            state->items_state->selected -= 1;
+            if (state->items_state->selected < 0)
+            {
+                state->items_state->selected = state->items_state->item_count - 1;
+            }
+            state->redraw = 1;
+        }
+    }
+    else if (PAD_justRepeated(BTN_RIGHT))
+    {
+        if (state->items_state->selected == state->items_state->item_count - 1 && !PAD_justPressed(BTN_RIGHT))
+        {
+            state->redraw = 0;
+        }
+        else
+        {
+            state->items_state->selected += 1;
+            if (state->items_state->selected >= state->items_state->item_count)
+            {
+                state->items_state->selected = 0;
+            }
+            state->redraw = 1;
+        }
+    }
 }
 
-struct Message
+// turns a hex color (e.g. #000000) into an SDL_Color
+SDL_Color hex_to_sdl_color(const char *hex)
 {
-    char message[1024];
-    int width;
-};
+    SDL_Color color = {0, 0, 0, 255};
 
-void strtrim(char *s)
-{
-    char *p = s;
-    int l = strlen(p);
-
-    if (l == 0)
+    // Skip # if present
+    if (hex[0] == '#')
     {
-        return;
+        hex++;
     }
 
-    while (isspace(p[l - 1]))
+    // Parse RGB values from hex string
+    int r, g, b;
+    if (sscanf(hex, "%02x%02x%02x", &r, &g, &b) == 3)
     {
-        p[--l] = 0;
+        color.r = r;
+        color.g = g;
+        color.b = b;
     }
 
-    while (*p && isspace(*p))
-    {
-        ++p;
-        --l;
-    }
-
-    memmove(s, p, l + 1);
+    return color;
 }
 
 // draw_screen interprets the app state and draws it to the screen
@@ -316,13 +498,11 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
 
     int message_padding = SCALE1(PADDING + BUTTON_PADDING);
 
-    struct DisplayState *display_state = &state->display_states[state->current_display_state_index];
-
     // get the width and height of every word in the message
     struct Message words[1024];
     int word_count = 0;
     char original_message[1024];
-    strncpy(original_message, display_state->message, sizeof(original_message) - 1);
+    strncpy(original_message, state->items_state->items[state->items_state->selected].text, sizeof(original_message) - 1);
     char *word = strtok(original_message, " ");
     int word_height = 0;
     while (word != NULL)
@@ -390,11 +570,11 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
     int messages_height = (current_message_index + 1) * word_height + (SCALE1(PADDING) * current_message_index);
     // default to the middle of the screen
     int current_message_y = (screen->h - messages_height) / 2;
-    if (display_state->message_alignment == MessageAlignmentTop)
+    if (state->items_state->items[state->items_state->selected].alignment == MessageAlignmentTop)
     {
         current_message_y = SCALE1(PADDING) + initial_padding;
     }
-    else if (display_state->message_alignment == MessageAlignmentBottom)
+    else if (state->items_state->items[state->items_state->selected].alignment == MessageAlignmentBottom)
     {
         current_message_y = screen->h - messages_height - SCALE1(PADDING) - initial_padding;
     }
@@ -403,7 +583,6 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
     {
         char *message = messages[i].message;
         int width = messages[i].width;
-
         SDL_Surface *text = TTF_RenderUTF8_Blended(state->fonts.large, message, COLOR_WHITE);
         SDL_Rect pos = {
             ((screen->w - text->w) / 2),
@@ -413,7 +592,6 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
         SDL_BlitSurface(text, NULL, screen, &pos);
         current_message_y += word_height + SCALE1(PADDING);
     }
-
     if (strcmp(state->action_button, "") != 0)
     {
         GFX_blitButtonGroup((char *[]){state->action_button, state->action_text, NULL}, 0, screen, 0);
@@ -447,6 +625,8 @@ void signal_handler(int signal)
 // - --cancel-button <button> (default: "B")
 // - --cancel-text <text> (default: "BACK")
 // - --cancel-show (default: false)
+// - --file <path> (default: empty string)
+// - --item-key <key> (default: "items")
 // - --message <message> (default: empty string)
 // - --message-alignment <alignment> (default: middle)
 // - --font <path> (default: empty string)
@@ -466,10 +646,12 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         {"cancel-button", required_argument, 0, 'B'},
         {"cancel-text", required_argument, 0, 'C'},
         {"cancel-show", no_argument, 0, 'Z'},
-        {"message", required_argument, 0, 'm'},
-        {"message-alignment", required_argument, 0, 'M'},
+        {"file", required_argument, 0, 'd'},
         {"font-default", required_argument, 0, 'f'},
         {"font-size-default", required_argument, 0, 'F'},
+        {"item-key", required_argument, 0, 'i'},
+        {"message", required_argument, 0, 'm'},
+        {"message-alignment", required_argument, 0, 'M'},
         {"show-hardware-group", no_argument, 0, 'S'},
         {"show-time-left", no_argument, 0, 'T'},
         {"timeout", required_argument, 0, 't'},
@@ -478,7 +660,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
     int opt;
     char *font_path = NULL;
     char message[1024];
-    char message_alignment[1024];
+    char alignment[1024];
     while ((opt = getopt_long(argc, argv, "a:A:b:c:B:C:d:f:F:m:M:S:TYXZ", long_options, NULL)) != -1)
     {
         switch (opt)
@@ -501,17 +683,23 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         case 'C':
             strncpy(state->cancel_text, optarg, sizeof(state->cancel_text) - 1);
             break;
+        case 'd':
+            strncpy(state->file, optarg, sizeof(state->file) - 1);
+            break;
         case 'f':
             font_path = optarg;
             break;
         case 'F':
             state->fonts.size = atoi(optarg);
             break;
+        case 'i':
+            strncpy(state->item_key, optarg, sizeof(state->item_key) - 1);
+            break;
         case 'm':
             strncpy(message, optarg, sizeof(message) - 1);
             break;
         case 'M':
-            strncpy(message_alignment, optarg, sizeof(message_alignment) - 1);
+            strncpy(alignment, optarg, sizeof(alignment) - 1);
             break;
         case 'S':
             state->show_hardware_group = 1;
@@ -536,29 +724,42 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         }
     }
 
-    if (message != NULL)
+    if (strlen(message) > 0)
     {
-        strncpy(state->display_states[0].message, message, sizeof(message) - 1);
-        strncpy(state->display_states[0].background_image, "", 0);
-        state->display_states[0].background_color = 0;
-        state->display_states[0].message_alignment = MessageAlignmentMiddle;
+        state->items_state = malloc(sizeof(struct ItemsState) * 1);
+        strncpy(state->items_state->items[0].text, message, sizeof(message) - 1);
+        strncpy(state->items_state->items[0].background_image, "", 0);
+        state->items_state->items[0].background_color = 0;
+        if (strcmp(alignment, "top") == 0)
+        {
+            state->items_state->items[0].alignment = MessageAlignmentTop;
+        }
+        else if (strcmp(alignment, "bottom") == 0)
+        {
+            state->items_state->items[0].alignment = MessageAlignmentBottom;
+        }
+        else if (strcmp(alignment, "middle") == 0)
+        {
+            state->items_state->items[0].alignment = MessageAlignmentMiddle;
+        }
+        else
+        {
+            log_error("Invalid message alignment provided");
+            return false;
+        }
     }
-
-    if (strcmp(message_alignment, "top") == 0)
+    else if (strcmp(state->file, "") != 0)
     {
-        state->display_states[0].message_alignment = MessageAlignmentTop;
-    }
-    else if (strcmp(message_alignment, "bottom") == 0)
-    {
-        state->display_states[0].message_alignment = MessageAlignmentBottom;
-    }
-    else if (strcmp(message_alignment, "middle") == 0)
-    {
-        state->display_states[0].message_alignment = MessageAlignmentMiddle;
+        state->items_state = ItemsState_New(state->file, state->item_key);
+        if (state->items_state == NULL)
+        {
+            log_error("Failed to hydrate display states");
+            return false;
+        }
     }
     else
     {
-        log_error("Invalid message alignment provided");
+        log_error("No message or file provided");
         return false;
     }
 
@@ -744,12 +945,6 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         return false;
     }
 
-    if (strlen(message) == 0)
-    {
-        log_error("No message provided");
-        return false;
-    }
-
     return true;
 }
 
@@ -818,6 +1013,8 @@ int main(int argc, char *argv[])
     char default_cancel_text[1024] = "BACK";
     char default_confirm_button[1024] = "A";
     char default_confirm_text[1024] = "SELECT";
+    char default_file[1024] = "";
+    char default_item_key[1024] = "items";
     char default_message[1024] = "";
     struct AppState state = {
         .redraw = 1,
@@ -834,9 +1031,8 @@ int main(int argc, char *argv[])
         .confirm_show = false,
         .cancel_show = false,
         .show_time_left = false,
-        .current_display_state_index = 0,
+        .items_state = NULL,
         .start_time = 0,
-        .display_states = {},
     };
 
     // assign the default values to the app state
@@ -846,6 +1042,8 @@ int main(int argc, char *argv[])
     strncpy(state.cancel_text, default_cancel_text, sizeof(state.cancel_text) - 1);
     strncpy(state.confirm_button, default_confirm_button, sizeof(state.confirm_button) - 1);
     strncpy(state.confirm_text, default_confirm_text, sizeof(state.confirm_text) - 1);
+    strncpy(state.file, default_file, sizeof(state.file) - 1);
+    strncpy(state.item_key, default_item_key, sizeof(state.item_key) - 1);
 
     // parse the arguments
     if (!parse_arguments(&state, argc, argv))
@@ -937,6 +1135,10 @@ int main(int argc, char *argv[])
     }
 
     swallow_stdout_from_function(destruct);
+
+    char buf[1024];
+    snprintf(buf, sizeof(buf), "%d", state.items_state->selected);
+    log_info(buf);
 
     // exit the program
     return state.exit_code;
