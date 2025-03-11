@@ -9,8 +9,10 @@
 #include <unistd.h>
 #ifdef USE_SDL2
 #include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_image.h>
 #else
 #include <SDL/SDL_ttf.h>
+#include <SDL/SDL_image.h>
 #endif
 
 #include "defines.h"
@@ -32,7 +34,7 @@ enum list_result_t
     ExitCodeCancelButton = 2,
     ExitCodeMenuButton = 3,
     ExitCodeActionButton = 4,
-    ExitCodeStartButton = 5,
+    ExitCodeStartButton = 6,
     ExitCodeTimeout = 124,
     ExitCodeKeyboardInterrupt = 130,
 };
@@ -82,6 +84,8 @@ struct Item
     char *background_image;
     // the text to display
     char *text;
+    // whether to show a pill around the text or not
+    bool show_pill;
     // the alignment of the text
     enum MessageAlignment alignment;
 };
@@ -255,6 +259,12 @@ struct ItemsState *ItemsState_New(const char *filename, const char *item_key)
 
         const char *background_color = json_object_get_string(item, "background_color");
         state->items[i].background_color = background_color ? strdup(background_color) : "#000000";
+
+        state->items[i].show_pill = false;
+        if (json_object_get_boolean(item, "show_pill") == 1)
+        {
+            state->items[i].show_pill = true;
+        }
 
         const char *alignment = json_object_get_string(item, "alignment");
         if (strcmp(alignment, "top") == 0)
@@ -456,6 +466,46 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
     uint32_t color = SDL_MapRGBA(screen->format, background_color.r, background_color.g, background_color.b, 255);
     SDL_FillRect(screen, NULL, color);
 
+    // check if there is an image and it is accessible
+    if (state->items_state->items[state->items_state->selected].background_image != NULL)
+    {
+        SDL_Surface *surface = IMG_Load(state->items_state->items[state->items_state->selected].background_image);
+        if (surface)
+        {
+            int imgW = surface->w, imgH = surface->h;
+
+            // Compute scale factor
+            float scaleX = (float)(FIXED_WIDTH - 2 * PADDING) / imgW;
+            float scaleY = (float)(FIXED_HEIGHT - 2 * PADDING) / imgH;
+            float scale = (scaleX < scaleY) ? scaleX : scaleY;
+
+            // Ensure upscaling only when the image is smaller than the screen
+            if (imgW * scale < FIXED_WIDTH - 2 * PADDING && imgH * scale < FIXED_HEIGHT - 2 * PADDING)
+            {
+                scale = (scaleX > scaleY) ? scaleX : scaleY;
+            }
+
+            // Compute target dimensions
+            int dstW = imgW * scale;
+            int dstH = imgH * scale;
+
+            int dstX = (FIXED_WIDTH - dstW) / 2;
+            int dstY = (FIXED_HEIGHT - dstH) / 2;
+            if (imgW == FIXED_WIDTH && imgH == FIXED_HEIGHT)
+            {
+                dstW = FIXED_WIDTH;
+                dstH = FIXED_HEIGHT;
+                dstX = 0;
+                dstY = 0;
+            }
+
+            // Compute destination rectangle
+            SDL_Rect dstRect = {dstX, dstY, dstW, dstH};
+            SDL_BlitScaled(surface, NULL, screen, &dstRect);
+            SDL_FreeSurface(surface);
+        }
+    }
+
     // draw the button group on the button-right
     // only two buttons can be displayed at a time
     if (state->confirm_show)
@@ -597,13 +647,25 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
         SDL_Surface *text = TTF_RenderUTF8_Blended(state->fonts.large, message, COLOR_WHITE);
         SDL_Rect pos = {
             ((screen->w - text->w) / 2),
-            current_message_y,
+            current_message_y + PADDING,
             text->w,
             text->h};
+
+        if (state->items_state->items[state->items_state->selected].show_pill)
+        {
+            SDL_Rect pill_rect = {
+                pos.x - SCALE1(PADDING * 2),
+                pos.y - SCALE1(PADDING + (i * PILL_SIZE)) + PADDING,
+                text->w + SCALE1(PADDING * 4),
+                SCALE1(PILL_SIZE)};
+
+            GFX_blitPill(ASSET_BLACK_PILL, screen, &pill_rect);
+        }
+
         SDL_BlitSurface(text, NULL, screen, &pos);
         current_message_y += word_height + SCALE1(PADDING);
     }
-    if (strcmp(state->action_button, "") != 0)
+    if (state->action_show && strcmp(state->action_button, "") != 0)
     {
         GFX_blitButtonGroup((char *[]){state->action_button, state->action_text, NULL}, 0, screen, 0);
     }
@@ -650,29 +712,29 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
     static struct option long_options[] = {
         {"action-button", required_argument, 0, 'a'},
         {"action-text", required_argument, 0, 'A'},
-        {"action-show", no_argument, 0, 'Y'},
         {"confirm-button", required_argument, 0, 'b'},
         {"confirm-text", required_argument, 0, 'c'},
-        {"confirm-show", no_argument, 0, 'X'},
         {"cancel-button", required_argument, 0, 'B'},
         {"cancel-text", required_argument, 0, 'C'},
-        {"cancel-show", no_argument, 0, 'Z'},
         {"file", required_argument, 0, 'd'},
         {"font-default", required_argument, 0, 'f'},
         {"font-size-default", required_argument, 0, 'F'},
-        {"item-key", required_argument, 0, 'i'},
+        {"item-key", required_argument, 0, 'K'},
         {"message", required_argument, 0, 'm'},
         {"message-alignment", required_argument, 0, 'M'},
         {"show-hardware-group", no_argument, 0, 'S'},
         {"show-time-left", no_argument, 0, 'T'},
         {"timeout", required_argument, 0, 't'},
+        {"confirm-show", no_argument, 0, 'W'},
+        {"action-show", no_argument, 0, 'Y'},
+        {"cancel-show", no_argument, 0, 'X'},
         {0, 0, 0, 0}};
 
     int opt;
     char *font_path = NULL;
     char message[1024];
     char alignment[1024];
-    while ((opt = getopt_long(argc, argv, "a:A:b:c:B:C:d:f:F:m:M:S:TYXZ", long_options, NULL)) != -1)
+    while ((opt = getopt_long(argc, argv, "a:A:b:c:B:C:d:f:F:K:m:M:S:TWYX", long_options, NULL)) != -1)
     {
         switch (opt)
         {
@@ -703,7 +765,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         case 'F':
             state->fonts.size = atoi(optarg);
             break;
-        case 'i':
+        case 'K':
             strncpy(state->item_key, optarg, sizeof(state->item_key) - 1);
             break;
         case 'm':
@@ -721,14 +783,14 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         case 'T':
             state->show_time_left = true;
             break;
-        case 'Y':
-            state->action_show = true;
-            break;
-        case 'X':
+        case 'W':
             state->confirm_show = true;
             break;
-        case 'Z':
+        case 'Y':
             state->cancel_show = true;
+            break;
+        case 'X':
+            state->action_show = true;
             break;
         default:
             return false;
@@ -740,6 +802,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         state->items_state = malloc(sizeof(struct ItemsState) * 1);
         strncpy(state->items_state->items[0].text, message, sizeof(message) - 1);
         strncpy(state->items_state->items[0].background_image, "", 0);
+        state->items_state->items[0].show_pill = false;
         state->items_state->items[0].background_color = 0;
         if (strcmp(alignment, "top") == 0)
         {
@@ -932,6 +995,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
             log_error("Y button cannot be assigned to more than one button");
             return false;
         }
+
         y_button_assigned = true;
     }
     if (strcmp(state->confirm_button, "Y") == 0)
@@ -941,6 +1005,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
             log_error("Y button cannot be assigned to more than one button");
             return false;
         }
+
         y_button_assigned = true;
     }
 
