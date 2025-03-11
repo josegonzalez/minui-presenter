@@ -84,6 +84,8 @@ struct Item
     char *background_color;
     // path to the background image to use for the list
     char *background_image;
+    // whether the background image exists
+    bool image_exists;
     // the text to display
     char *text;
     // whether to show a pill around the text or not
@@ -277,6 +279,7 @@ struct ItemsState *ItemsState_New(const char *filename, const char *item_key)
 
         const char *background_image = json_object_get_string(item, "background_image");
         state->items[i].background_image = background_image ? strdup(background_image) : NULL;
+        state->items[i].image_exists = background_image != NULL && access(background_image, F_OK) != -1;
 
         const char *background_color = json_object_get_string(item, "background_color");
         state->items[i].background_color = background_color ? strdup(background_color) : "#000000";
@@ -331,6 +334,15 @@ struct ItemsState *ItemsState_New(const char *filename, const char *item_key)
 // handle_input interprets input events and mutates app state
 void handle_input(struct AppState *state)
 {
+    if (!state->items_state->items[state->items_state->selected].image_exists && state->items_state->items[state->items_state->selected].background_image != NULL)
+    {
+        if (access(state->items_state->items[state->items_state->selected].background_image, F_OK) != -1)
+        {
+            state->items_state->items[state->items_state->selected].image_exists = true;
+            state->redraw = 1;
+        }
+    }
+
     if (state->timeout_seconds < 0)
     {
         return;
@@ -959,6 +971,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         items_state->items = malloc(sizeof(struct Item) * 1);
         items_state->items[0].text = strdup(message);
         items_state->items[0].background_image = NULL;
+        items_state->items[0].image_exists = false;
         items_state->items[0].show_pill = false;
         items_state->items[0].background_color = 0;
         if (strcmp(alignment, "top") == 0)
