@@ -93,7 +93,6 @@ When an assigned button is pressed, minui-presenter will exit with the appropria
 - `0`: Success
 - `1`: Error
 - `2`: Cancel button pressed
-- `3`: Menu button pressed
 - `4`: Action button pressed
 - `5`: Inaction button pressed
 - `6`: Start button pressed
