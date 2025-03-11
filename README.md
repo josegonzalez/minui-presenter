@@ -132,8 +132,8 @@ When multiple items are displayed, the list can be scrolled using the `LEFT` AND
 
 ## Screenshots
 
-| Name                          | Image                                                                 |
-|-------------------------------|-----------------------------------------------------------------------|
-| Fullscreen image with Actions | <img src="screenshots/fullscreen-image-with-actions.png" width=240 /> |
-| Scaled image with Actions     | <img src="screenshots/image-with-actions-scaled.png" width=240 />     |
-| Message with Timeout          | <img src="screenshots/message-with-timeout.png" width=240 />          |
+| Name                                           | Image                                                                 |
+|------------------------------------------------|-----------------------------------------------------------------------|
+| Fullscreen image with Actions                  | <img src="screenshots/fullscreen-image-with-actions.png" width=240 /> |
+| Background color and scaled image with Actions | <img src="screenshots/background-color-and-image-with-actions-scaled.png" width=240 /> |
+| Message with Timeout                           | <img src="screenshots/message-with-timeout.png" width=240 />          |
