@@ -310,6 +310,11 @@ struct ItemsState *ItemsState_New(const char *filename, const char *item_key)
 // handle_input interprets input events and mutates app state
 void handle_input(struct AppState *state)
 {
+    if (state->timeout_seconds < 0)
+    {
+        return;
+    }
+
     PAD_poll();
 
     bool is_action_button_pressed = false;
@@ -1275,7 +1280,7 @@ int main(int argc, char *argv[])
         .quitting = 0,
         .exit_code = EXIT_SUCCESS,
         .show_hardware_group = 0,
-        .timeout_seconds = -1,
+        .timeout_seconds = 0,
         .fonts = {
             .size = FONT_LARGE,
             .large = NULL,
