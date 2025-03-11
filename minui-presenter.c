@@ -62,6 +62,8 @@ struct Fonts
     TTF_Font *large;
     // the medium font to use for the list
     TTF_Font *medium;
+    // the small font to use for the list
+    TTF_Font *small;
 };
 
 enum MessageAlignment
@@ -113,11 +115,13 @@ struct AppState
     // the text to display on the Cancel button
     char cancel_text[1024];
     // the seconds to display the message for before timing out
-    int sleep_timeout_seconds;
+    int timeout_seconds;
     // whether to show the time left
     bool show_time_left;
     // current display state index
     int current_display_state_index;
+    // the start time of the presentation
+    struct timeval start_time;
     // the fonts to use for the list
     struct Fonts fonts;
     // the display states
@@ -277,6 +281,36 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
         GFX_blitButtonGroup((char *[]){state->cancel_button, state->cancel_text, NULL}, 1, screen, 1);
     }
 
+    if (state->show_time_left && state->timeout_seconds > 0)
+    {
+        struct timeval current_time;
+        gettimeofday(&current_time, NULL);
+
+        int time_left = state->timeout_seconds - (current_time.tv_sec - state->start_time.tv_sec);
+        if (time_left <= 0)
+        {
+            time_left = 0;
+        }
+
+        char time_left_str[1024];
+        if (time_left == 1)
+        {
+            snprintf(time_left_str, sizeof(time_left_str), "time left: %d second", time_left);
+        }
+        else
+        {
+            snprintf(time_left_str, sizeof(time_left_str), "time left: %d seconds", time_left);
+        }
+
+        SDL_Surface *text = TTF_RenderUTF8_Blended(state->fonts.small, time_left_str, COLOR_WHITE);
+        SDL_Rect pos = {
+            SCALE1(PADDING),
+            SCALE1(PADDING),
+            text->w,
+            text->h};
+        SDL_BlitSurface(text, NULL, screen, &pos);
+    }
+
     int message_padding = SCALE1(PADDING + BUTTON_PADDING);
 
     struct DisplayState *display_state = &state->display_states[state->current_display_state_index];
@@ -409,7 +443,7 @@ void signal_handler(int signal)
 // - --cancel-button <button> (default: "B")
 // - --cancel-text <text> (default: "BACK")
 // - --cancel-show (default: false)
-// - --sleep-seconds <seconds> (default: 1)
+// - --timeout <seconds> (default: 1)
 // - --message <message> (default: empty string)
 // - --font <path> (default: empty string)
 // - --font-size <size> (default: FONT_LARGE)
@@ -427,12 +461,12 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         {"cancel-button", required_argument, 0, 'B'},
         {"cancel-text", required_argument, 0, 'C'},
         {"cancel-show", no_argument, 0, 'Z'},
-        {"sleep-seconds", required_argument, 0, 's'},
         {"message", required_argument, 0, 'm'},
         {"font-default", required_argument, 0, 'f'},
         {"font-size-default", required_argument, 0, 'F'},
         {"show-hardware-group", no_argument, 0, 'S'},
         {"show-time-left", no_argument, 0, 'T'},
+        {"timeout", required_argument, 0, 't'},
         {0, 0, 0, 0}};
 
     int opt;
@@ -469,8 +503,8 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         case 'm':
             strncpy(message, optarg, sizeof(message) - 1);
             break;
-        case 's':
-            state->sleep_timeout_seconds = atoi(optarg);
+        case 't':
+            state->timeout_seconds = atoi(optarg);
             break;
         case 'S':
             state->show_hardware_group = 1;
@@ -508,13 +542,20 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
             log_error("Invalid font path provided");
             return false;
         }
-        state->fonts.large = TTF_OpenFont(font_path, state->fonts.size);
+        state->fonts.large = TTF_OpenFont(font_path, SCALE1(state->fonts.size));
         if (state->fonts.large == NULL)
         {
             log_error("Failed to open large font");
             return false;
         }
         TTF_SetFontStyle(state->fonts.large, TTF_STYLE_BOLD);
+
+        state->fonts.small = TTF_OpenFont(font_path, SCALE1(FONT_SMALL));
+        if (state->fonts.small == NULL)
+        {
+            log_error("Failed to open small font");
+            return false;
+        }
     }
     else
     {
@@ -525,6 +566,13 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
             return false;
         }
         TTF_SetFontStyle(state->fonts.large, TTF_STYLE_BOLD);
+
+        state->fonts.small = TTF_OpenFont(FONT_PATH, SCALE1(FONT_SMALL));
+        if (state->fonts.small == NULL)
+        {
+            log_error("Failed to open small font");
+            return false;
+        }
     }
 
     // Apply default values for certain buttons and texts
@@ -748,7 +796,7 @@ int main(int argc, char *argv[])
         .quitting = 0,
         .exit_code = EXIT_SUCCESS,
         .show_hardware_group = 0,
-        .sleep_timeout_seconds = -1,
+        .timeout_seconds = -1,
         .fonts = {
             .size = FONT_LARGE,
             .large = NULL,
@@ -757,7 +805,9 @@ int main(int argc, char *argv[])
         .action_show = false,
         .confirm_show = false,
         .cancel_show = false,
+        .show_time_left = false,
         .current_display_state_index = 0,
+        .start_time = 0,
         .display_states = {},
     };
 
@@ -779,8 +829,7 @@ int main(int argc, char *argv[])
     int was_online = PLAT_isOnline();
 
     // get the current time
-    struct timeval start_time;
-    gettimeofday(&start_time, NULL);
+    gettimeofday(&state.start_time, NULL);
 
     int show_setting = 0; // 1=brightness,2=volume
 
@@ -842,14 +891,19 @@ int main(int argc, char *argv[])
         }
 
         // if the sleep seconds is larger than 0, check if the sleep has expired
-        if (state.sleep_timeout_seconds > 0)
+        if (state.timeout_seconds > 0)
         {
             struct timeval current_time;
             gettimeofday(&current_time, NULL);
-            if (current_time.tv_sec - start_time.tv_sec >= state.sleep_timeout_seconds)
+            if (current_time.tv_sec - state.start_time.tv_sec >= state.timeout_seconds)
             {
                 state.exit_code = ExitCodeTimeout;
                 state.quitting = 1;
+            }
+
+            if (current_time.tv_sec != state.start_time.tv_sec)
+            {
+                state.redraw = 1;
             }
         }
     }
