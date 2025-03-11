@@ -38,6 +38,7 @@ enum list_result_t
     ExitCodeStartButton = 6,
     ExitCodeTimeout = 124,
     ExitCodeKeyboardInterrupt = 130,
+    ExitCodeSigterm = 143,
 };
 typedef int ExitCode;
 
@@ -817,6 +818,10 @@ void signal_handler(int signal)
     {
         exit(ExitCodeKeyboardInterrupt);
     }
+    else if (signal == SIGTERM)
+    {
+        exit(ExitCodeSigterm);
+    }
     else
     {
         exit(ExitCodeError);
@@ -1282,6 +1287,7 @@ int main(int argc, char *argv[])
     swallow_stdout_from_function(init);
 
     signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
 
     // Initialize app state
     char default_action_button[1024] = "";
