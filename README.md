@@ -114,9 +114,12 @@ When using `--file`, the JSON should follow this format:
       "show_pill": false,
       "alignment": "middle"
     }
-  ]
+  ],
+  "selected": 0
 }
 ```
+
+An initial index can be specified via the `selected` key (default: `0`).
 
 When multiple items are displayed, the list can be scrolled using the `LEFT` AND `RIGHT` buttons.
 

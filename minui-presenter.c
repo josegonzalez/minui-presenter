@@ -245,7 +245,14 @@ struct ItemsState *ItemsState_New(const char *filename, const char *item_key)
         root_value = json_parse_file_with_comments(filename);
     }
 
-    JSON_Array *items = json_value_get_array(json_object_get_value(json_value_get_object(root_value), item_key));
+    JSON_Object *root_object = json_value_get_object(root_value);
+    if (root_object == NULL)
+    {
+        json_value_free(root_value);
+        return NULL;
+    }
+
+    JSON_Array *items = json_object_get_array(root_object, item_key);
     if (items == NULL)
     {
         json_value_free(root_value);
@@ -302,6 +309,19 @@ struct ItemsState *ItemsState_New(const char *filename, const char *item_key)
 
     state->item_count = item_count;
     state->selected = 0;
+
+    if (json_object_has_value(root_object, "selected"))
+    {
+        state->selected = json_object_get_number(root_object, "selected");
+        if (state->selected < 0)
+        {
+            state->selected = 0;
+        }
+        else if (state->selected >= item_count)
+        {
+            state->selected = item_count - 1;
+        }
+    }
 
     json_value_free(root_value);
     return state;
