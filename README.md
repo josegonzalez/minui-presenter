@@ -125,7 +125,7 @@ When multiple items are displayed, the list can be scrolled using the `LEFT` AND
 ### Item Properties
 
 - `text`: The message to display
-- `background_image`: (default: null) Path to background image. Will be stretched to fill screen by aspect ratio.
+- `background_image`: (default: null) Path to background image. Will be stretched to fill screen by aspect ratio. The image will be displayed as soon as it exists.
 - `background_color`: (default: `#000000`) Hex color code for background
 - `show_pill`: (default: `false`) Whether to show a pill around the text
 - `alignment`: (default: `middle`) Message alignment ("top", "middle", "bottom")
