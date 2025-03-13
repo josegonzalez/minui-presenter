@@ -70,9 +70,9 @@ minui-presenter --message "The quick brown fox jumps over the lazy dog"
 
 When setting the `--timeout` flag, `minui-presenter` has the following behavior:
 
-- `value < 0`: Will not respond to button presses. This is useful for backgrounding the process and using `killall` to terminate it once another foreground process completes.
-- `value == 0`: Will continue to execute until any of the configured buttons are pressed. Useful for confirmation screens or image galleries.
-- `value > 0`: Will continue to execute until any of the configured buttons are pressed _or_ the configured timeout is reached. Useful for confirmation screens that should only be shown for a maximum amount of time.
+- `value < 0`: Will not respond to button presses. This is useful for backgrounding the process and using `killall` to terminate it once another foreground process completes. Sleep will be disabled.
+- `value == 0`: Will continue to execute until any of the configured buttons are pressed. Useful for confirmation screens or image galleries. Sleep will be disabled.
+- `value > 0`: Will continue to execute until any of the configured buttons are pressed _or_ the configured timeout is reached. Useful for confirmation screens that should only be shown for a maximum amount of time. Sleep is enabled.
 
 ### Button Values
 
