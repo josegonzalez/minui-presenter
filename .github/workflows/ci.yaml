@@ -64,12 +64,8 @@ jobs:
 
       - name: Build the application
         run: |
-          set -x
           docker run -d -v "$(pwd)/workspace":/root/workspace savant/minui-toolchain:${{ matrix.toolchain }} tail -f /dev/null
           container_id="$(docker container ls | grep savant/minui-toolchain:${{ matrix.toolchain }} | awk '{print $1}')"
-          sleep 5
-          docker container ls -a
-          echo "Container ID: $container_id"
           docker exec --env PLATFORM=${{ matrix.toolchain }} "$container_id" bash -c "source /root/.bashrc && make -C /root/workspace/repo setup"
           docker exec --env PLATFORM=${{ matrix.toolchain }} "$container_id" bash -c "source /root/.bashrc && make -C /root/workspace/repo"
           docker container rm -f "$container_id"
