@@ -634,9 +634,9 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
 
     // draw the button group on the button-right
     // only two buttons can be displayed at a time
-    if (state->confirm_show)
+    if (state->confirm_show && strcmp(state->confirm_button, "") != 0)
     {
-        if (state->cancel_show)
+        if (state->cancel_show && strcmp(state->cancel_button, "") != 0)
         {
             GFX_blitButtonGroup((char *[]){state->cancel_button, state->cancel_text, state->confirm_button, state->confirm_text, NULL}, 1, screen, 1);
         }
@@ -1216,14 +1216,24 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
     }
 
     // validate that the confirm and cancel buttons are valid
-    if (strcmp(state->confirm_button, "A") != 0 && strcmp(state->confirm_button, "B") != 0 && strcmp(state->confirm_button, "X") != 0 && strcmp(state->confirm_button, "Y") != 0)
+    if (strcmp(state->confirm_button, "A") != 0 && strcmp(state->confirm_button, "B") != 0 && strcmp(state->confirm_button, "X") != 0 && strcmp(state->confirm_button, "Y") != 0 && strcmp(state->confirm_button, "") != 0)
     {
         log_error("Invalid confirm button provided");
         return false;
     }
-    if (strcmp(state->cancel_button, "A") != 0 && strcmp(state->cancel_button, "B") != 0 && strcmp(state->cancel_button, "X") != 0 && strcmp(state->cancel_button, "Y") != 0)
+    if (strcmp(state->cancel_button, "A") != 0 && strcmp(state->cancel_button, "B") != 0 && strcmp(state->cancel_button, "X") != 0 && strcmp(state->cancel_button, "Y") != 0 && strcmp(state->cancel_button, "") != 0)
     {
         log_error("Invalid cancel button provided");
+        return false;
+    }
+    if (strcmp(state->action_button, "A") != 0 && strcmp(state->action_button, "B") != 0 && strcmp(state->action_button, "X") != 0 && strcmp(state->action_button, "Y") != 0 && strcmp(state->action_button, "") != 0)
+    {
+        log_error("Invalid action button provided");
+        return false;
+    }
+    if (strcmp(state->inaction_button, "A") != 0 && strcmp(state->inaction_button, "B") != 0 && strcmp(state->inaction_button, "X") != 0 && strcmp(state->inaction_button, "Y") != 0 && strcmp(state->inaction_button, "") != 0)
+    {
+        log_error("Invalid inaction button provided");
         return false;
     }
 
