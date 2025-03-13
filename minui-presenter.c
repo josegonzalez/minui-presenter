@@ -1357,6 +1357,11 @@ int main(int argc, char *argv[])
 
     int show_setting = 0; // 1=brightness,2=volume
 
+    if (state.timeout_seconds <= 0)
+    {
+        PWR_disableAutosleep();
+    }
+
     while (!state.quitting)
     {
         // start the frame to ensure GFX_sync() works
