@@ -1443,7 +1443,7 @@ int main(int argc, char *argv[])
                 state.quitting = 1;
             }
 
-            if (current_time.tv_sec != state.start_time.tv_sec)
+            if (current_time.tv_sec != state.start_time.tv_sec && state.show_time_left)
             {
                 state.redraw = 1;
             }
