@@ -584,7 +584,7 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
     char hex_color[1024] = "#000000";
     if (state->items_state->items[state->items_state->selected].background_color != NULL)
     {
-        strncpy(hex_color, state->items_state->items[state->items_state->selected].background_color, sizeof(hex_color) - 1);
+        strncpy(hex_color, state->items_state->items[state->items_state->selected].background_color, sizeof(hex_color));
     }
 
     SDL_Color background_color = hex_to_sdl_color(hex_color);
@@ -701,7 +701,7 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
     struct Message words[1024];
     int word_count = 0;
     char original_message[1024];
-    strncpy(original_message, state->items_state->items[state->items_state->selected].text, sizeof(original_message) - 1);
+    strncpy(original_message, state->items_state->items[state->items_state->selected].text, sizeof(original_message));
     char *word = strtok(original_message, " ");
     int word_height = 0;
     while (word != NULL)
@@ -714,7 +714,7 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
         }
 
         TTF_SizeUTF8(state->fonts.large, word, &word_width, &word_height);
-        strncpy(words[word_count].message, word, sizeof(word) - 1);
+        strncpy(words[word_count].message, word, sizeof(words[word_count].message));
         words[word_count].width = word_width;
         word_count++;
         word = strtok(NULL, " ");
@@ -729,7 +729,7 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
     struct Message messages[MAIN_ROW_COUNT];
     for (int i = 0; i < MAIN_ROW_COUNT; i++)
     {
-        strncpy(messages[i].message, "", sizeof(messages[i].message) - 1);
+        strncpy(messages[i].message, "", sizeof(messages[i].message));
         messages[i].width = 0;
     }
 
@@ -746,14 +746,14 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
         {
             if (messages[current_message_index].width == 0)
             {
-                strncpy(messages[current_message_index].message, words[i].message, sizeof(words[i].message) - 1);
+                strncpy(messages[current_message_index].message, words[i].message, sizeof(messages[current_message_index].message));
             }
             else
             {
                 char messageBuf[256];
                 snprintf(messageBuf, sizeof(messageBuf), "%s %s", messages[current_message_index].message, words[i].message);
 
-                strncpy(messages[current_message_index].message, messageBuf, sizeof(messageBuf) - 1);
+                strncpy(messages[current_message_index].message, messageBuf, sizeof(messages[current_message_index].message));
             }
             messages[current_message_index].width += words[i].width;
         }
@@ -761,7 +761,7 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
         {
             current_message_index++;
             message_count++;
-            strncpy(messages[current_message_index].message, words[i].message, sizeof(words[i].message) - 1);
+            strncpy(messages[current_message_index].message, words[i].message, sizeof(messages[current_message_index].message));
             messages[current_message_index].width = words[i].width;
         }
     }
@@ -898,25 +898,25 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         switch (opt)
         {
         case 'a':
-            strncpy(state->action_button, optarg, sizeof(state->action_button) - 1);
+            strncpy(state->action_button, optarg, sizeof(state->action_button));
             break;
         case 'A':
-            strncpy(state->action_text, optarg, sizeof(state->action_text) - 1);
+            strncpy(state->action_text, optarg, sizeof(state->action_text));
             break;
         case 'b':
-            strncpy(state->confirm_button, optarg, sizeof(state->confirm_button) - 1);
+            strncpy(state->confirm_button, optarg, sizeof(state->confirm_button));
             break;
         case 'B':
-            strncpy(state->cancel_button, optarg, sizeof(state->cancel_button) - 1);
+            strncpy(state->cancel_button, optarg, sizeof(state->cancel_button));
             break;
         case 'c':
-            strncpy(state->confirm_text, optarg, sizeof(state->confirm_text) - 1);
+            strncpy(state->confirm_text, optarg, sizeof(state->confirm_text));
             break;
         case 'C':
-            strncpy(state->cancel_text, optarg, sizeof(state->cancel_text) - 1);
+            strncpy(state->cancel_text, optarg, sizeof(state->cancel_text));
             break;
         case 'd':
-            strncpy(state->file, optarg, sizeof(state->file) - 1);
+            strncpy(state->file, optarg, sizeof(state->file));
             break;
         case 'f':
             font_path = optarg;
@@ -925,19 +925,19 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
             state->fonts.size = atoi(optarg);
             break;
         case 'i':
-            strncpy(state->inaction_text, optarg, sizeof(state->inaction_text) - 1);
+            strncpy(state->inaction_text, optarg, sizeof(state->inaction_text));
             break;
         case 'I':
-            strncpy(state->inaction_button, optarg, sizeof(state->inaction_button) - 1);
+            strncpy(state->inaction_button, optarg, sizeof(state->inaction_button));
             break;
         case 'K':
-            strncpy(state->item_key, optarg, sizeof(state->item_key) - 1);
+            strncpy(state->item_key, optarg, sizeof(state->item_key));
             break;
         case 'm':
-            strncpy(message, optarg, sizeof(message) - 1);
+            strncpy(message, optarg, sizeof(message));
             break;
         case 'M':
-            strncpy(alignment, optarg, sizeof(alignment) - 1);
+            strncpy(alignment, optarg, sizeof(alignment));
             break;
         case 'S':
             state->show_hardware_group = 1;
@@ -1054,32 +1054,32 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
     // Apply default values for certain buttons and texts
     if (strcmp(state->action_button, "") == 0)
     {
-        strncpy(state->action_button, "", sizeof(state->action_button) - 1);
+        strncpy(state->action_button, "", sizeof(state->action_button));
     }
 
     if (strcmp(state->action_text, "") == 0)
     {
-        strncpy(state->action_text, "ACTION", sizeof(state->action_text) - 1);
+        strncpy(state->action_text, "ACTION", sizeof(state->action_text));
     }
 
     if (strcmp(state->cancel_button, "") == 0)
     {
-        strncpy(state->cancel_button, "B", sizeof(state->cancel_button) - 1);
+        strncpy(state->cancel_button, "B", sizeof(state->cancel_button));
     }
 
     if (strcmp(state->confirm_text, "") == 0)
     {
-        strncpy(state->confirm_text, "SELECT", sizeof(state->confirm_text) - 1);
+        strncpy(state->confirm_text, "SELECT", sizeof(state->confirm_text));
     }
 
     if (strcmp(state->cancel_text, "") == 0)
     {
-        strncpy(state->cancel_text, "BACK", sizeof(state->cancel_text) - 1);
+        strncpy(state->cancel_text, "BACK", sizeof(state->cancel_text));
     }
 
     if (strcmp(state->inaction_text, "") == 0)
     {
-        strncpy(state->inaction_text, "OTHER", sizeof(state->inaction_text) - 1);
+        strncpy(state->inaction_text, "OTHER", sizeof(state->inaction_text));
     }
 
     // validate that hardware buttons aren't assigned to more than once
@@ -1345,16 +1345,16 @@ int main(int argc, char *argv[])
     };
 
     // assign the default values to the app state
-    strncpy(state.action_button, default_action_button, sizeof(state.action_button) - 1);
-    strncpy(state.action_text, default_action_text, sizeof(state.action_text) - 1);
-    strncpy(state.cancel_button, default_cancel_button, sizeof(state.cancel_button) - 1);
-    strncpy(state.cancel_text, default_cancel_text, sizeof(state.cancel_text) - 1);
-    strncpy(state.confirm_button, default_confirm_button, sizeof(state.confirm_button) - 1);
-    strncpy(state.confirm_text, default_confirm_text, sizeof(state.confirm_text) - 1);
-    strncpy(state.inaction_button, default_inaction_button, sizeof(state.inaction_button) - 1);
-    strncpy(state.inaction_text, default_inaction_text, sizeof(state.inaction_text) - 1);
-    strncpy(state.file, default_file, sizeof(state.file) - 1);
-    strncpy(state.item_key, default_item_key, sizeof(state.item_key) - 1);
+    strncpy(state.action_button, default_action_button, sizeof(state.action_button));
+    strncpy(state.action_text, default_action_text, sizeof(state.action_text));
+    strncpy(state.cancel_button, default_cancel_button, sizeof(state.cancel_button));
+    strncpy(state.cancel_text, default_cancel_text, sizeof(state.cancel_text));
+    strncpy(state.confirm_button, default_confirm_button, sizeof(state.confirm_button));
+    strncpy(state.confirm_text, default_confirm_text, sizeof(state.confirm_text));
+    strncpy(state.inaction_button, default_inaction_button, sizeof(state.inaction_button));
+    strncpy(state.inaction_text, default_inaction_text, sizeof(state.inaction_text));
+    strncpy(state.file, default_file, sizeof(state.file));
+    strncpy(state.item_key, default_item_key, sizeof(state.item_key));
 
     // parse the arguments
     if (!parse_arguments(&state, argc, argv))
