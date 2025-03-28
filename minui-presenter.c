@@ -953,10 +953,10 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         case 'W':
             state->confirm_show = true;
             break;
-        case 'Y':
+        case 'X':
             state->cancel_show = true;
             break;
-        case 'X':
+        case 'Y':
             state->action_show = true;
             break;
         case 'Z':
