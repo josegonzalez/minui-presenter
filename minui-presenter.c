@@ -474,7 +474,7 @@ void handle_input(struct AppState *state)
         }
     }
 
-    if (is_action_button_pressed)
+    if (is_action_button_pressed && state->action_show)
     {
         state->redraw = 0;
         state->quitting = 1;
@@ -482,7 +482,7 @@ void handle_input(struct AppState *state)
         return;
     }
 
-    if (is_confirm_button_pressed)
+    if (is_confirm_button_pressed && state->confirm_show)
     {
         state->redraw = 0;
         state->quitting = 1;
@@ -498,7 +498,7 @@ void handle_input(struct AppState *state)
         return;
     }
 
-    if (is_inaction_button_pressed)
+    if (is_inaction_button_pressed && state->inaction_show)
     {
         state->redraw = 0;
         state->quitting = 1;
