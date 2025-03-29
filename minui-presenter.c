@@ -250,6 +250,12 @@ struct ItemsState *ItemsState_New(const char *filename, const char *item_key)
         root_value = json_parse_file_with_comments(filename);
     }
 
+    if (root_value == NULL)
+    {
+        log_error("Failed to parse JSON file");
+        return NULL;
+    }
+
     JSON_Object *root_object = json_value_get_object(root_value);
     if (root_object == NULL)
     {
@@ -276,15 +282,42 @@ struct ItemsState *ItemsState_New(const char *filename, const char *item_key)
     for (size_t i = 0; i < item_count; i++)
     {
         JSON_Object *item = json_array_get_object(items, i);
+        if (item == NULL)
+        {
+            char buff[1024];
+            snprintf(buff, sizeof(buff), "Failed to get item %zu", i);
+            log_error(buff);
+            json_value_free(root_value);
+            return NULL;
+        }
+
         const char *text = json_object_get_string(item, "text");
-        state->items[i].text = text ? strdup(text) : "";
+        if (text == NULL)
+        {
+            char buff[1024];
+            snprintf(buff, sizeof(buff), "Failed to get text for item %zu", i);
+            log_error(buff);
+            json_value_free(root_value);
+            return NULL;
+        }
+
+        state->items[i].text = strdup(text);
 
         const char *background_image = json_object_get_string(item, "background_image");
+        if (background_image == NULL)
+        {
+            char buff[1024];
+            snprintf(buff, sizeof(buff), "Failed to get background image for item %zu", i);
+            log_error(buff);
+            json_value_free(root_value);
+            return NULL;
+        }
+
         state->items[i].background_image = background_image ? strdup(background_image) : NULL;
         state->items[i].image_exists = background_image != NULL && access(background_image, F_OK) != -1;
 
         const char *background_color = json_object_get_string(item, "background_color");
-        state->items[i].background_color = background_color ? strdup(background_color) : "#000000";
+        state->items[i].background_color = background_color != NULL ? strdup(background_color) : "#000000";
 
         state->items[i].show_pill = false;
         if (json_object_get_boolean(item, "show_pill") == 1)
@@ -293,6 +326,11 @@ struct ItemsState *ItemsState_New(const char *filename, const char *item_key)
         }
 
         const char *alignment = json_object_get_string(item, "alignment");
+        if (alignment == NULL)
+        {
+            alignment = "middle";
+        }
+
         if (strcmp(alignment, "top") == 0)
         {
             state->items[i].alignment = MessageAlignmentTop;
