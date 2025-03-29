@@ -86,7 +86,7 @@ Valid button assignments are:
 - `X`: X button
 - `Y`: Y button
 
-When an assigned button is pressed, minui-presenter will exit with the appropriate exit code.
+When an assigned button is pressed, minui-presenter will exit with the appropriate exit code. Minui-presenter will ignore button presses for the assigned `A`/`X`/`Y` buttons if they are not displayed via the appropriate `show` flag (though will always respect the assigned `B` button).
 
 ## Exit Codes
 
