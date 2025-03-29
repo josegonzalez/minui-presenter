@@ -71,6 +71,9 @@ struct Fonts
     TTF_Font *medium;
     // the small font to use for the list
     TTF_Font *small;
+
+    // the path to the font to use for the list
+    char *font_path;
 };
 
 enum MessageAlignment
@@ -863,6 +866,50 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
     state->redraw = 0;
 }
 
+bool open_fonts(struct AppState *state)
+{
+    if (state->fonts.font_path == NULL)
+    {
+        log_error("No font path provided");
+        return false;
+    }
+
+    // check if the font path is valid
+    if (access(state->fonts.font_path, F_OK) == -1)
+    {
+        log_error("Invalid font path provided");
+        return false;
+    }
+
+    char buff[1024];
+    snprintf(buff, sizeof(buff), "Font path: %s", state->fonts.font_path);
+    log_error(buff);
+
+    snprintf(buff, sizeof(buff), "Font size: %d", state->fonts.size);
+    log_error(buff);
+
+    state->fonts.large = TTF_OpenFont(state->fonts.font_path, SCALE1(state->fonts.size));
+    if (state->fonts.large == NULL)
+    {
+        char buff[1024];
+        snprintf(buff, sizeof(buff), "Failed to open large font: %s", TTF_GetError());
+        log_error(buff);
+        return false;
+    }
+    TTF_SetFontStyle(state->fonts.large, TTF_STYLE_BOLD);
+
+    state->fonts.small = TTF_OpenFont(state->fonts.font_path, SCALE1(FONT_SMALL));
+    if (state->fonts.small == NULL)
+    {
+        char buff[1024];
+        snprintf(buff, sizeof(buff), "Failed to open small font: %s", TTF_GetError());
+        log_error(buff);
+        return false;
+    }
+
+    return true;
+}
+
 void signal_handler(int signal)
 {
     // if the signal is a ctrl+c, exit with code 130
@@ -1058,37 +1105,12 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
             log_error("Invalid font path provided");
             return false;
         }
-        state->fonts.large = TTF_OpenFont(font_path, SCALE1(state->fonts.size));
-        if (state->fonts.large == NULL)
-        {
-            log_error("Failed to open large font");
-            return false;
-        }
-        TTF_SetFontStyle(state->fonts.large, TTF_STYLE_BOLD);
 
-        state->fonts.small = TTF_OpenFont(font_path, SCALE1(FONT_SMALL));
-        if (state->fonts.small == NULL)
-        {
-            log_error("Failed to open small font");
-            return false;
-        }
+        state->fonts.font_path = strdup(font_path);
     }
     else
     {
-        state->fonts.large = TTF_OpenFont(FONT_PATH, SCALE1(state->fonts.size));
-        if (state->fonts.large == NULL)
-        {
-            log_error("Failed to open large font");
-            return false;
-        }
-        TTF_SetFontStyle(state->fonts.large, TTF_STYLE_BOLD);
-
-        state->fonts.small = TTF_OpenFont(FONT_PATH, SCALE1(FONT_SMALL));
-        if (state->fonts.small == NULL)
-        {
-            log_error("Failed to open small font");
-            return false;
-        }
+        state->fonts.font_path = strdup(FONT_PATH);
     }
 
     // Apply default values for certain buttons and texts
@@ -1395,6 +1417,7 @@ int main(int argc, char *argv[])
             .size = FONT_LARGE,
             .large = NULL,
             .medium = NULL,
+            .font_path = NULL,
         },
         .action_show = false,
         .confirm_show = false,
@@ -1427,6 +1450,11 @@ int main(int argc, char *argv[])
 
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
+
+    if (!open_fonts(&state))
+    {
+        return ExitCodeError;
+    }
 
     // get initial wifi state
     int was_online = PLAT_isOnline();
