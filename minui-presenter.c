@@ -824,8 +824,18 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
     for (int i = 0; i <= message_count; i++)
     {
         char *message = messages[i].message;
+        if (message == NULL)
+        {
+            continue;
+        }
+
         int width = messages[i].width;
         SDL_Surface *text = TTF_RenderUTF8_Blended(state->fonts.large, message, COLOR_WHITE);
+        if (text == NULL)
+        {
+            continue;
+        }
+
         SDL_Rect pos = {
             ((screen->w - text->w) / 2),
             current_message_y + PADDING,
