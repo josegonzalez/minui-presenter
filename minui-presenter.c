@@ -790,7 +790,13 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
         {
             potential_width += letter_width;
         }
-        if (potential_width <= FIXED_WIDTH - 2 * message_padding)
+
+        if (messages[current_message_index].width == 0)
+        {
+            strncpy(messages[current_message_index].message, words[i].message, sizeof(messages[current_message_index].message));
+            messages[current_message_index].width = words[i].width;
+        }
+        else if (potential_width <= FIXED_WIDTH - 2 * message_padding)
         {
             if (messages[current_message_index].width == 0)
             {
