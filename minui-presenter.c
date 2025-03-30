@@ -881,13 +881,6 @@ bool open_fonts(struct AppState *state)
         return false;
     }
 
-    char buff[1024];
-    snprintf(buff, sizeof(buff), "Font path: %s", state->fonts.font_path);
-    log_error(buff);
-
-    snprintf(buff, sizeof(buff), "Font size: %d", state->fonts.size);
-    log_error(buff);
-
     state->fonts.large = TTF_OpenFont(state->fonts.font_path, SCALE1(state->fonts.size));
     if (state->fonts.large == NULL)
     {
