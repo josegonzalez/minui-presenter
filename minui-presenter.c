@@ -780,12 +780,23 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
     int current_message_index = 0;
     for (int i = 0; i < word_count; i++)
     {
+        if (current_message_index >= MAIN_ROW_COUNT)
+        {
+            break;
+        }
+
         int potential_width = messages[current_message_index].width + words[i].width;
         if (i > 0)
         {
             potential_width += letter_width;
         }
-        if (potential_width <= FIXED_WIDTH - 2 * message_padding)
+
+        if (messages[current_message_index].width == 0)
+        {
+            strncpy(messages[current_message_index].message, words[i].message, sizeof(messages[current_message_index].message));
+            messages[current_message_index].width = words[i].width;
+        }
+        else if (potential_width <= FIXED_WIDTH - 2 * message_padding)
         {
             if (messages[current_message_index].width == 0)
             {
@@ -824,8 +835,18 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
     for (int i = 0; i <= message_count; i++)
     {
         char *message = messages[i].message;
+        if (message == NULL)
+        {
+            continue;
+        }
+
         int width = messages[i].width;
         SDL_Surface *text = TTF_RenderUTF8_Blended(state->fonts.large, message, COLOR_WHITE);
+        if (text == NULL)
+        {
+            continue;
+        }
+
         SDL_Rect pos = {
             ((screen->w - text->w) / 2),
             current_message_y + PADDING,
