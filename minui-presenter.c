@@ -780,6 +780,11 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
     int current_message_index = 0;
     for (int i = 0; i < word_count; i++)
     {
+        if (current_message_index >= MAIN_ROW_COUNT)
+        {
+            break;
+        }
+
         int potential_width = messages[current_message_index].width + words[i].width;
         if (i > 0)
         {
