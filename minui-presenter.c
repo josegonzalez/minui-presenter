@@ -857,10 +857,9 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
         {
             SDL_Rect pill_rect = {
                 pos.x - SCALE1(PADDING * 2),
-                pos.y - SCALE1(PADDING + (i * PILL_SIZE)) + PADDING,
+                pos.y - SCALE1(PADDING),
                 text->w + SCALE1(PADDING * 4),
                 SCALE1(PILL_SIZE)};
-
             GFX_blitPill(ASSET_BLACK_PILL, screen, &pill_rect);
         }
 
