@@ -119,8 +119,6 @@ struct AppState
     int quitting;
     // the exit code to return
     int exit_code;
-    // whether to show the hardware group
-    int show_hardware_group;
     // the button to display on the Action button
     char action_button[1024];
     // whether to show the Action button
@@ -149,6 +147,8 @@ struct AppState
     char file[1024];
     // the seconds to display the message for before timing out
     int timeout_seconds;
+    // whether to show the hardware group
+    bool show_hardware_group;
     // whether to show the time left
     bool show_time_left;
     // the key to the items array in the JSON file
@@ -1040,7 +1040,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
             strncpy(alignment, optarg, sizeof(alignment));
             break;
         case 'S':
-            state->show_hardware_group = 1;
+            state->show_hardware_group = true;
             break;
         case 't':
             state->timeout_seconds = atoi(optarg);
@@ -1424,7 +1424,7 @@ int main(int argc, char *argv[])
         .redraw = 1,
         .quitting = 0,
         .exit_code = ExitCodeSuccess,
-        .show_hardware_group = 0,
+        .show_hardware_group = false,
         .timeout_seconds = 0,
         .fonts = {
             .size = FONT_LARGE,
