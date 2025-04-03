@@ -968,13 +968,13 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
     static struct option long_options[] = {
         {"action-button", required_argument, 0, 'a'},
         {"action-text", required_argument, 0, 'A'},
-        {"confirm-button", required_argument, 0, 'b'},
-        {"confirm-text", required_argument, 0, 'c'},
-        {"cancel-button", required_argument, 0, 'B'},
-        {"cancel-text", required_argument, 0, 'C'},
-        {"inaction-button", required_argument, 0, 'I'},
-        {"inaction-text", required_argument, 0, 'i'},
-        {"file", required_argument, 0, 'd'},
+        {"confirm-button", required_argument, 0, 'c'},
+        {"confirm-text", required_argument, 0, 'C'},
+        {"cancel-button", required_argument, 0, 'd'},
+        {"cancel-text", required_argument, 0, 'D'},
+        {"inaction-button", required_argument, 0, 'i'},
+        {"inaction-text", required_argument, 0, 'I'},
+        {"file", required_argument, 0, 'E'},
         {"font-default", required_argument, 0, 'f'},
         {"font-size-default", required_argument, 0, 'F'},
         {"item-key", required_argument, 0, 'K'},
@@ -993,7 +993,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
     char *font_path = NULL;
     char message[1024];
     char alignment[1024];
-    while ((opt = getopt_long(argc, argv, "a:A:b:c:B:C:d:f:F:i:I:K:m:M:S:t:TWYXZ", long_options, NULL)) != -1)
+    while ((opt = getopt_long(argc, argv, "a:A:c:C:d:D:E:f:F:i:I:K:m:M::tSTWYXZ", long_options, NULL)) != -1)
     {
         switch (opt)
         {
@@ -1003,19 +1003,19 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         case 'A':
             strncpy(state->action_text, optarg, sizeof(state->action_text));
             break;
-        case 'b':
+        case 'c':
             strncpy(state->confirm_button, optarg, sizeof(state->confirm_button));
             break;
-        case 'B':
-            strncpy(state->cancel_button, optarg, sizeof(state->cancel_button));
-            break;
-        case 'c':
+        case 'C':
             strncpy(state->confirm_text, optarg, sizeof(state->confirm_text));
             break;
-        case 'C':
+        case 'd':
+            strncpy(state->cancel_button, optarg, sizeof(state->cancel_button));
+            break;
+        case 'D':
             strncpy(state->cancel_text, optarg, sizeof(state->cancel_text));
             break;
-        case 'd':
+        case 'E':
             strncpy(state->file, optarg, sizeof(state->file));
             break;
         case 'f':
@@ -1025,10 +1025,10 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
             state->fonts.size = atoi(optarg);
             break;
         case 'i':
-            strncpy(state->inaction_text, optarg, sizeof(state->inaction_text));
+            strncpy(state->inaction_button, optarg, sizeof(state->inaction_button));
             break;
         case 'I':
-            strncpy(state->inaction_button, optarg, sizeof(state->inaction_button));
+            strncpy(state->inaction_text, optarg, sizeof(state->inaction_text));
             break;
         case 'K':
             strncpy(state->item_key, optarg, sizeof(state->item_key));
