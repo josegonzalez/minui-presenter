@@ -125,6 +125,10 @@ struct AppState
     bool action_show;
     // the text to display on the Action button
     char action_text[1024];
+    // the background image to display
+    char background_image[1024];
+    // the background color to display
+    char background_color[1024];
     // the button to display on the Confirm button
     char confirm_button[1024];
     // whether to show the Confirm button
@@ -145,12 +149,14 @@ struct AppState
     char inaction_text[1024];
     // the path to the JSON file
     char file[1024];
-    // the seconds to display the message for before timing out
-    int timeout_seconds;
     // whether to show the hardware group
     bool show_hardware_group;
+    // whether to show the pill
+    bool show_pill;
     // whether to show the time left
     bool show_time_left;
+    // the seconds to display the message for before timing out
+    int timeout_seconds;
     // the key to the items array in the JSON file
     char item_key[1024];
     // the start time of the presentation
@@ -231,7 +237,7 @@ char *read_stdin()
 }
 
 // hydrate_display_states hydrates the display states from a file or stdin
-struct ItemsState *ItemsState_New(const char *filename, const char *item_key)
+struct ItemsState *ItemsState_New(const char *filename, const char *item_key, const char *default_background_image, const char *default_background_color, bool default_show_pill, enum MessageAlignment default_alignment)
 {
     struct ItemsState *state = malloc(sizeof(struct ItemsState));
 
@@ -307,34 +313,48 @@ struct ItemsState *ItemsState_New(const char *filename, const char *item_key)
         state->items[i].text = strdup(text);
 
         const char *background_image = json_object_get_string(item, "background_image");
-        if (background_image == NULL)
+        state->items[i].background_image = strdup(default_background_image);
+        state->items[i].image_exists = default_background_image != NULL && access(default_background_image, F_OK) != -1;
+        if (background_image != NULL)
         {
-            char buff[1024];
-            snprintf(buff, sizeof(buff), "Failed to get background image for item %zu", i);
-            log_error(buff);
-            json_value_free(root_value);
-            return NULL;
+            state->items[i].background_image = strdup(background_image);
+            state->items[i].image_exists = access(background_image, F_OK) != -1;
         }
 
-        state->items[i].background_image = background_image ? strdup(background_image) : NULL;
-        state->items[i].image_exists = background_image != NULL && access(background_image, F_OK) != -1;
-
         const char *background_color = json_object_get_string(item, "background_color");
-        state->items[i].background_color = background_color != NULL ? strdup(background_color) : "#000000";
-
-        state->items[i].show_pill = false;
-        if (json_object_get_boolean(item, "show_pill") == 1)
+        state->items[i].background_color = strdup(default_background_color);
+        if (background_color != NULL)
         {
-            state->items[i].show_pill = true;
+            state->items[i].background_color = strdup(background_color);
+        }
+
+        state->items[i].show_pill = default_show_pill;
+        if (json_object_has_value(item, "show_pill"))
+        {
+            if (json_object_get_boolean(item, "show_pill") == 1)
+            {
+                state->items[i].show_pill = true;
+            }
+            else if (json_object_get_boolean(item, "show_pill") == 0)
+            {
+                state->items[i].show_pill = false;
+            }
+            else
+            {
+                char buff[1024];
+                snprintf(buff, sizeof(buff), "Invalid show_pill value provided for item %zu", i);
+                log_error(buff);
+                json_value_free(root_value);
+                return NULL;
+            }
         }
 
         const char *alignment = json_object_get_string(item, "alignment");
         if (alignment == NULL)
         {
-            alignment = "middle";
+            state->items[i].alignment = default_alignment;
         }
-
-        if (strcmp(alignment, "top") == 0)
+        else if (strcmp(alignment, "top") == 0)
         {
             state->items[i].alignment = MessageAlignmentTop;
         }
@@ -348,7 +368,9 @@ struct ItemsState *ItemsState_New(const char *filename, const char *item_key)
         }
         else
         {
-            log_error("Invalid alignment provided");
+            char buff[1024];
+            snprintf(buff, sizeof(buff), "Invalid alignment provided for item %zu", i);
+            log_error(buff);
             json_value_free(root_value);
             return NULL;
         }
@@ -945,6 +967,8 @@ void signal_handler(int signal)
 // - --action-button <button> (default: "")
 // - --action-text <text> (default: "ACTION")
 // - --action-show (default: false)
+// - --background-image <path> (default: empty string)
+// - --background-color <hex> (default: empty string)
 // - --confirm-button <button> (default: "A")
 // - --confirm-text <text> (default: "SELECT")
 // - --confirm-show (default: false)
@@ -961,6 +985,7 @@ void signal_handler(int signal)
 // - --font <path> (default: empty string)
 // - --font-size <size> (default: FONT_LARGE)
 // - --show-hardware-group (default: false)
+// - --show-pill (default: false)
 // - --show-time-left (default: false)
 // - --timeout <seconds> (default: 1)
 bool parse_arguments(struct AppState *state, int argc, char *argv[])
@@ -968,6 +993,8 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
     static struct option long_options[] = {
         {"action-button", required_argument, 0, 'a'},
         {"action-text", required_argument, 0, 'A'},
+        {"background-image", required_argument, 0, 'b'},
+        {"background-color", required_argument, 0, 'B'},
         {"confirm-button", required_argument, 0, 'c'},
         {"confirm-text", required_argument, 0, 'C'},
         {"cancel-button", required_argument, 0, 'd'},
@@ -980,6 +1007,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         {"item-key", required_argument, 0, 'K'},
         {"message", required_argument, 0, 'm'},
         {"message-alignment", required_argument, 0, 'M'},
+        {"show-pill", no_argument, 0, 'P'},
         {"show-hardware-group", no_argument, 0, 'S'},
         {"show-time-left", no_argument, 0, 'T'},
         {"timeout", required_argument, 0, 't'},
@@ -993,7 +1021,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
     char *font_path = NULL;
     char message[1024];
     char alignment[1024];
-    while ((opt = getopt_long(argc, argv, "a:A:c:C:d:D:E:f:F:i:I:K:m:M::tSTWYXZ", long_options, NULL)) != -1)
+    while ((opt = getopt_long(argc, argv, "a:A:b:B:c:C:d:D:E:f:F:i:I:K:m:M::t:PSTWYXZ", long_options, NULL)) != -1)
     {
         switch (opt)
         {
@@ -1002,6 +1030,12 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
             break;
         case 'A':
             strncpy(state->action_text, optarg, sizeof(state->action_text));
+            break;
+        case 'b':
+            strncpy(state->background_image, optarg, sizeof(state->background_image));
+            break;
+        case 'B':
+            strncpy(state->background_color, optarg, sizeof(state->background_color));
             break;
         case 'c':
             strncpy(state->confirm_button, optarg, sizeof(state->confirm_button));
@@ -1039,6 +1073,9 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         case 'M':
             strncpy(alignment, optarg, sizeof(alignment));
             break;
+        case 'P':
+            state->show_pill = true;
+            break;
         case 'S':
             state->show_hardware_group = true;
             break;
@@ -1065,39 +1102,54 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         }
     }
 
+    enum MessageAlignment default_alignment = MessageAlignmentMiddle;
+    if (strcmp(alignment, "top") == 0)
+    {
+        default_alignment = MessageAlignmentTop;
+    }
+    else if (strcmp(alignment, "bottom") == 0)
+    {
+        default_alignment = MessageAlignmentBottom;
+    }
+    else if (strcmp(alignment, "middle") == 0 || strcmp(alignment, "") == 0)
+    {
+        default_alignment = MessageAlignmentMiddle;
+    }
+    else
+    {
+        log_error("Invalid message alignment provided");
+        return false;
+    }
+
     if (strlen(message) > 0)
     {
         struct ItemsState *items_state = malloc(sizeof(struct ItemsState));
         items_state->items = malloc(sizeof(struct Item) * 1);
         items_state->items[0].text = strdup(message);
+        items_state->items[0].background_color = "#000000";
         items_state->items[0].background_image = NULL;
         items_state->items[0].image_exists = false;
-        items_state->items[0].show_pill = false;
-        items_state->items[0].background_color = 0;
-        if (strcmp(alignment, "top") == 0)
+        items_state->items[0].show_pill = state->show_pill;
+
+        if (strcmp(state->background_color, "") != 0)
         {
-            items_state->items[0].alignment = MessageAlignmentTop;
+            items_state->items[0].background_color = strdup(state->background_color);
         }
-        else if (strcmp(alignment, "bottom") == 0)
+
+        if (strcmp(state->background_image, "") != 0)
         {
-            items_state->items[0].alignment = MessageAlignmentBottom;
+            items_state->items[0].background_image = strdup(state->background_image);
+            items_state->items[0].image_exists = access(state->background_image, F_OK) != -1;
         }
-        else if (strcmp(alignment, "middle") == 0 || strcmp(alignment, "") == 0)
-        {
-            items_state->items[0].alignment = MessageAlignmentMiddle;
-        }
-        else
-        {
-            log_error("Invalid message alignment provided");
-            return false;
-        }
+
+        items_state->items[0].alignment = default_alignment;
         items_state->item_count = 1;
         items_state->selected = 0;
         state->items_state = items_state;
     }
     else if (strcmp(state->file, "") != 0)
     {
-        state->items_state = ItemsState_New(state->file, state->item_key);
+        state->items_state = ItemsState_New(state->file, state->item_key, state->background_image, state->background_color, state->show_pill, default_alignment);
         if (state->items_state == NULL)
         {
             log_error("Failed to hydrate display states");
@@ -1411,6 +1463,8 @@ int main(int argc, char *argv[])
     // Initialize app state
     char default_action_button[1024] = "";
     char default_action_text[1024] = "ACTION";
+    char default_background_image[1024] = "";
+    char default_background_color[1024] = "#000000";
     char default_cancel_button[1024] = "B";
     char default_cancel_text[1024] = "BACK";
     char default_confirm_button[1024] = "A";
@@ -1439,11 +1493,14 @@ int main(int argc, char *argv[])
         .show_time_left = false,
         .items_state = NULL,
         .start_time = 0,
+        .show_pill = false,
     };
 
     // assign the default values to the app state
     strncpy(state.action_button, default_action_button, sizeof(state.action_button));
     strncpy(state.action_text, default_action_text, sizeof(state.action_text));
+    strncpy(state.background_image, default_background_image, sizeof(state.background_image));
+    strncpy(state.background_color, default_background_color, sizeof(state.background_color));
     strncpy(state.cancel_button, default_cancel_button, sizeof(state.cancel_button));
     strncpy(state.cancel_text, default_cancel_text, sizeof(state.cancel_text));
     strncpy(state.confirm_button, default_confirm_button, sizeof(state.confirm_button));

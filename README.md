@@ -22,11 +22,14 @@ minui-presenter --message "The quick brown fox jumps over the lazy dog"
 
 #### Message Display
 
-- `--message <text>`: Display a single message
-- `--message-alignment <alignment>`: Set message alignment (default: middle)
+- `--background-color <hex-color>`: Default background color to use (default: `#000000`).
+- `--background-image <path>`: Default background image to use (default: empty string).
+- `--message <text>`: Display a single message (default: empty string)
+- `--message-alignment <alignment>`: Set message alignment (default: `middle`)
   - Valid values: `top`, `middle`, `bottom`
-- `--file <path>`: Path to JSON file containing messages
+- `--file <path>`: Path to JSON file containing messages (default: empty string)
 - `--item-key <key>`: Key in JSON file containing items array (default: `items`)
+- `--show-pill`: Whether to show the pill by default or not (default: `false`)
 
 > [!IMPORTANT]
 > Either the `--message` or `--file` argument must be specified
