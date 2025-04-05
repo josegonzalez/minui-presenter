@@ -92,6 +92,14 @@ Valid button assignments are:
 
 When an assigned button is pressed, minui-presenter will exit with the appropriate exit code. Minui-presenter will ignore button presses for the assigned `A`/`X`/`Y` buttons if they are not displayed via the appropriate `show` flag (though will always respect the assigned `B` button).
 
+## Signals
+
+This process handles the following signals:
+
+- `SIGINT`: Exits with Keyboard interrupt (`130`)
+- `SIGTERM`: Exits gracefully (`143`)
+- `SIGUSR1`: Advances the item state by one or goes to first item if at end of list. Respects the `--quit-after-last-item` flag.
+
 ## Exit Codes
 
 - `0`: Success
@@ -102,6 +110,7 @@ When an assigned button is pressed, minui-presenter will exit with the appropria
 - `6`: Start button pressed
 - `124`: Timeout reached
 - `130`: Keyboard interrupt (Ctrl+C)
+- `143`: Graceful exit (`SIGTERM`)
 
 ## JSON File Format
 

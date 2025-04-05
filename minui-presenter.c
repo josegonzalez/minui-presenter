@@ -2,7 +2,9 @@
 #include <getopt.h>
 #include <msettings.h>
 #include <parson/parson.h>
+#include <pthread.h>
 #include <signal.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/time.h>
@@ -26,6 +28,9 @@ bool use_sdl2 = true;
 #else
 bool use_sdl2 = false;
 #endif
+
+pthread_mutex_t increment_item_list_index_lock = PTHREAD_MUTEX_INITIALIZER;
+volatile sig_atomic_t increment_item_list_index = 0;
 
 enum list_result_t
 {
@@ -413,6 +418,34 @@ void handle_input(struct AppState *state)
     if (state->timeout_seconds < 0)
     {
         return;
+    }
+
+    if (increment_item_list_index)
+    {
+        pthread_mutex_lock(&increment_item_list_index_lock);
+        increment_item_list_index = 0;
+        state->items_state->selected += 1;
+        bool should_return = false;
+        if (state->items_state->selected >= state->items_state->item_count)
+        {
+            if (state->quit_after_last_item)
+            {
+                state->redraw = 0;
+                state->quitting = 1;
+                state->exit_code = ExitCodeSuccess;
+                should_return = true;
+            }
+            else
+            {
+                state->items_state->selected = 0;
+            }
+        }
+        state->redraw = 1;
+        pthread_mutex_unlock(&increment_item_list_index_lock);
+        if (should_return)
+        {
+            return;
+        }
     }
 
     PAD_poll();
@@ -964,6 +997,10 @@ void signal_handler(int signal)
     else if (signal == SIGTERM)
     {
         exit(ExitCodeSigterm);
+    }
+    else if (signal == SIGUSR1)
+    {
+        increment_item_list_index = 1;
     }
     else
     {
@@ -1533,8 +1570,13 @@ int main(int argc, char *argv[])
 
     swallow_stdout_from_function(init);
 
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
+    struct sigaction sa = {
+        .sa_handler = signal_handler,
+        .sa_flags = SA_RESTART};
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
+    sigaction(SIGUSR1, &sa, NULL);
 
     if (!open_fonts(&state))
     {
