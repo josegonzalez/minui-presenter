@@ -149,6 +149,8 @@ struct AppState
     char inaction_text[1024];
     // the path to the JSON file
     char file[1024];
+    // quit after last item
+    bool quit_after_last_item;
     // whether to show the hardware group
     bool show_hardware_group;
     // whether to show the pill
@@ -563,6 +565,13 @@ void handle_input(struct AppState *state)
             state->items_state->selected += 1;
             if (state->items_state->selected >= state->items_state->item_count)
             {
+                if (state->quit_after_last_item)
+                {
+                    state->redraw = 0;
+                    state->quitting = 1;
+                    state->exit_code = ExitCodeSuccess;
+                    return;
+                }
                 state->items_state->selected = 0;
             }
             state->redraw = 1;
@@ -984,6 +993,7 @@ void signal_handler(int signal)
 // - --message-alignment <alignment> (default: middle)
 // - --font <path> (default: empty string)
 // - --font-size <size> (default: FONT_LARGE)
+// - --quit-after-last-item (default: false)
 // - --show-hardware-group (default: false)
 // - --show-pill (default: false)
 // - --show-time-left (default: false)
@@ -1007,6 +1017,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         {"item-key", required_argument, 0, 'K'},
         {"message", required_argument, 0, 'm'},
         {"message-alignment", required_argument, 0, 'M'},
+        {"quit-after-last-item", no_argument, 0, 'Q'},
         {"show-pill", no_argument, 0, 'P'},
         {"show-hardware-group", no_argument, 0, 'S'},
         {"show-time-left", no_argument, 0, 'T'},
@@ -1021,7 +1032,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
     char *font_path = NULL;
     char message[1024];
     char alignment[1024];
-    while ((opt = getopt_long(argc, argv, "a:A:b:B:c:C:d:D:E:f:F:i:I:K:m:M::t:PSTWYXZ", long_options, NULL)) != -1)
+    while ((opt = getopt_long(argc, argv, "a:A:b:B:c:C:d:D:E:f:F:i:I:K:m:M::t:QPSTWYXZ", long_options, NULL)) != -1)
     {
         switch (opt)
         {
@@ -1072,6 +1083,9 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
             break;
         case 'M':
             strncpy(alignment, optarg, sizeof(alignment));
+            break;
+        case 'Q':
+            state->quit_after_last_item = true;
             break;
         case 'P':
             state->show_pill = true;
@@ -1490,6 +1504,7 @@ int main(int argc, char *argv[])
         .confirm_show = false,
         .cancel_show = false,
         .inaction_show = false,
+        .quit_after_last_item = false,
         .show_time_left = false,
         .items_state = NULL,
         .start_time = 0,

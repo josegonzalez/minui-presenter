@@ -29,6 +29,7 @@ minui-presenter --message "The quick brown fox jumps over the lazy dog"
   - Valid values: `top`, `middle`, `bottom`
 - `--file <path>`: Path to JSON file containing messages (default: empty string)
 - `--item-key <key>`: Key in JSON file containing items array (default: `items`)
+- `--quit-after-last-item`: Quit the program after navigating past the last element (default: `false`)
 - `--show-pill`: Whether to show the pill by default or not (default: `false`)
 
 > [!IMPORTANT]
