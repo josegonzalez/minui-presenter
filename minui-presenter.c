@@ -146,6 +146,8 @@ struct AppState
     bool cancel_show;
     // the text to display on the Cancel button
     char cancel_text[1024];
+    // whether to disable auto sleep
+    bool disable_auto_sleep;
     // the button to display on the Inaction button
     char inaction_button[1024];
     // whether to show the Inaction button
@@ -1021,6 +1023,7 @@ void signal_handler(int signal)
 // - --cancel-button <button> (default: "B")
 // - --cancel-text <text> (default: "BACK")
 // - --cancel-show (default: false)
+// - --disable-auto-sleep (default: false)
 // - --inaction-button <button> (default: empty string)
 // - --inaction-text <text> (default: "OTHER")
 // - --inaction-show (default: false)
@@ -1059,6 +1062,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         {"show-hardware-group", no_argument, 0, 'S'},
         {"show-time-left", no_argument, 0, 'T'},
         {"timeout", required_argument, 0, 't'},
+        {"disable-auto-sleep", no_argument, 0, 'U'},
         {"confirm-show", no_argument, 0, 'W'},
         {"cancel-show", no_argument, 0, 'X'},
         {"action-show", no_argument, 0, 'Y'},
@@ -1069,7 +1073,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
     char *font_path = NULL;
     char message[1024];
     char alignment[1024];
-    while ((opt = getopt_long(argc, argv, "a:A:b:B:c:C:d:D:E:f:F:i:I:K:m:M::t:QPSTWYXZ", long_options, NULL)) != -1)
+    while ((opt = getopt_long(argc, argv, "a:A:b:B:c:C:d:D:E:f:F:i:I:K:m:M:t:QPSTUWYXZ", long_options, NULL)) != -1)
     {
         switch (opt)
         {
@@ -1135,6 +1139,9 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
             break;
         case 'T':
             state->show_time_left = true;
+            break;
+        case 'U':
+            state->disable_auto_sleep = true;
             break;
         case 'W':
             state->confirm_show = true;
@@ -1540,6 +1547,7 @@ int main(int argc, char *argv[])
         .action_show = false,
         .confirm_show = false,
         .cancel_show = false,
+        .disable_auto_sleep = false,
         .inaction_show = false,
         .quit_after_last_item = false,
         .show_time_left = false,
@@ -1591,7 +1599,7 @@ int main(int argc, char *argv[])
 
     int show_setting = 0; // 1=brightness,2=volume
 
-    if (state.timeout_seconds <= 0)
+    if (state.timeout_seconds <= 0 || state.disable_auto_sleep)
     {
         PWR_disableAutosleep();
     }

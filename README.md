@@ -68,6 +68,7 @@ minui-presenter --message "The quick brown fox jumps over the lazy dog"
 
 ### Display Options
 
+- `--disable-auto-sleep`: Disables the auto-sleep functionality (default: `false`)
 - `--show-hardware-group`: Show hardware information group (default: `false`)
 - `--show-time-left`: Show countdown timer (default: `false`)
 - `--timeout <seconds>`: Set timeout in seconds (default: `0`, no timeout)
