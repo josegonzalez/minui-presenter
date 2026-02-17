@@ -21,6 +21,12 @@
 #include "api.h"
 #include "utils.h"
 
+// Platform compatibility: tg5050 (NextUI) uses PWR_isOnline instead of PLAT_isOnline
+#ifdef PLATFORM_NEXTUI
+#define PLAT_isOnline PWR_isOnline
+#define FONT_PATH RES_PATH "/BPreplayBold-unhinted.otf"
+#endif
+
 SDL_Surface *screen = NULL;
 
 #ifdef USE_SDL2
