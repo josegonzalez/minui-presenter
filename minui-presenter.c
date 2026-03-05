@@ -417,11 +417,6 @@ void handle_input(struct AppState *state)
         }
     }
 
-    if (state->timeout_seconds < 0)
-    {
-        return;
-    }
-
     if (increment_item_list_index)
     {
         pthread_mutex_lock(&increment_item_list_index_lock);
@@ -448,6 +443,11 @@ void handle_input(struct AppState *state)
         {
             return;
         }
+    }
+
+    if (state->timeout_seconds < 0)
+    {
+        return;
     }
 
     PAD_poll();
