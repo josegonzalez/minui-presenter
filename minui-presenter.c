@@ -1444,12 +1444,30 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
     return true;
 }
 
+// set_cloexec sets the CLOEXEC flag on a file descriptor
+static void set_cloexec(int fd)
+{
+    int flags = fcntl(fd, F_GETFD);
+    if (flags == -1)
+    {
+        return;
+    }
+
+    fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
+}
+
 // suppress_output suppresses stdout and stderr
 // returns a single integer containing both file descriptors
 int suppress_output(void)
 {
     int stdout_fd = dup(STDOUT_FILENO);
     int stderr_fd = dup(STDERR_FILENO);
+
+    // Prevent child processes started while stdout is suppressed from
+    // inheriting the saved descriptors and keeping command-substitution
+    // pipes open after the main process exits.
+    set_cloexec(stdout_fd);
+    set_cloexec(stderr_fd);
 
     int dev_null_fd = open("/dev/null", O_WRONLY);
     dup2(dev_null_fd, STDOUT_FILENO);
