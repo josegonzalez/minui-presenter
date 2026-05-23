@@ -1,0 +1,28 @@
+# minui-presenter — English strings (reference / fallback)
+
+# Default button labels (used when --action/--confirm/--cancel/--inaction-text
+# is not provided on the command line).
+mp.btn.action=ACTION
+mp.btn.select=SELECT
+mp.btn.back=BACK
+mp.btn.other=OTHER
+
+# Pak-provided labels can also be translated if they match these keys.
+# Listed here so the English value (the original literal) is what shows
+# up by default; locale files override only where needed.
+EXIT=EXIT
+QUIT=QUIT
+OK=OK
+OKAY=OKAY
+CANCEL=CANCEL
+BACK=BACK
+RETURN=RETURN
+APPLY=APPLY
+CONFIRM=CONFIRM
+DELETE=DELETE
+YES=YES
+NO=NO
+
+# Common --message strings emitted by paks (Gallery, etc.)
+No screenshots found=No screenshots found
+Screenshots directory not found=Screenshots directory not found

@@ -1,5 +1,6 @@
 minui
-/include
+/include/*
+!/include/i18n/
 /lib
 /platform
 minui-presenter-*

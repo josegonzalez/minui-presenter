@@ -1,0 +1,29 @@
+# minui-presenter — strings françaises
+
+# Labels par défaut des boutons (utilisés quand --action/--confirm/--cancel/
+# --inaction-text n'est pas fourni en ligne de commande).
+mp.btn.action=ACTION
+mp.btn.select=CHOISIR
+mp.btn.back=RETOUR
+mp.btn.other=AUTRE
+
+# Re-traductions : si un pak passe l'une de ces chaînes anglaises
+# via --cancel-text/--action-text/..., elle est remplacée par le
+# texte ci-dessous. Permet de traduire des paks tiers sans modifier
+# leur launch.sh.
+EXIT=QUITTER
+QUIT=QUITTER
+OK=OK
+OKAY=OK
+CANCEL=ANNULER
+BACK=RETOUR
+RETURN=RETOUR
+APPLY=APPLIQUER
+CONFIRM=CONFIRMER
+DELETE=SUPPRIMER
+YES=OUI
+NO=NON
+
+# Messages --message courants émis par les paks (Gallery, etc.)
+No screenshots found=Aucune capture trouvée
+Screenshots directory not found=Dossier captures introuvable
