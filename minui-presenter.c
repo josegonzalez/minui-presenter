@@ -154,6 +154,8 @@ struct AppState
     char cancel_text[1024];
     // whether to disable auto sleep
     bool disable_auto_sleep;
+    // whether to disable automatic word wrapping (only break on newlines)
+    bool disable_auto_wrap;
     // the button to display on the Inaction button
     char inaction_button[1024];
     // whether to show the Inaction button
@@ -210,6 +212,44 @@ void strtrim(char *s)
     }
 
     memmove(s, p, l + 1);
+}
+
+// unescape_string interprets backslash escape sequences in place.
+// Supported escapes: "\n" (newline), "\t" (tab), and "\\" (literal backslash).
+// Any other escape sequence is left untouched (both the backslash and the
+// following character are preserved). This is applied to the --message flag so
+// that callers can insert manual line breaks from the command line.
+void unescape_string(char *str)
+{
+    char *src = str;
+    char *dst = str;
+    while (*src != '\0')
+    {
+        if (*src == '\\' && *(src + 1) != '\0')
+        {
+            switch (*(src + 1))
+            {
+            case 'n':
+                *dst++ = '\n';
+                src += 2;
+                continue;
+            case 't':
+                *dst++ = '\t';
+                src += 2;
+                continue;
+            case '\\':
+                *dst++ = '\\';
+                src += 2;
+                continue;
+            default:
+                // unknown escape: keep the backslash and let the next
+                // character be copied on the following iteration
+                break;
+            }
+        }
+        *dst++ = *src++;
+    }
+    *dst = '\0';
 }
 
 char *read_stdin()
@@ -813,26 +853,53 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
     int message_padding = SCALE1(PADDING + BUTTON_PADDING);
 
     // get the width and height of every word in the message
+    // words are separated by whitespace; an embedded newline forces a line
+    // break. breaks_before[i] records how many newlines precede words[i] so
+    // that consecutive newlines can render as blank lines.
     struct Message words[1024];
+    int breaks_before[1024];
     int word_count = 0;
     char original_message[1024];
     strncpy(original_message, state->items_state->items[state->items_state->selected].text, sizeof(original_message));
-    char *word = strtok(original_message, " ");
+    original_message[sizeof(original_message) - 1] = '\0';
     int word_height = 0;
-    while (word != NULL)
+    int pending_breaks = 0;
+    char *cursor = original_message;
+    while (*cursor != '\0' && word_count < 1024)
     {
-        int word_width;
-        strtrim(word);
-        if (strcmp(word, "") == 0)
+        // newlines force a line break; other whitespace only separates words
+        if (*cursor == '\n')
         {
+            pending_breaks++;
+            cursor++;
+            continue;
+        }
+        if (*cursor == ' ' || *cursor == '\t' || *cursor == '\r')
+        {
+            cursor++;
             continue;
         }
 
-        TTF_SizeUTF8(state->fonts.large, word, &word_width, &word_height);
-        strncpy(words[word_count].message, word, sizeof(words[word_count].message));
+        char *word_start = cursor;
+        while (*cursor != '\0' && *cursor != ' ' && *cursor != '\t' && *cursor != '\r' && *cursor != '\n')
+        {
+            cursor++;
+        }
+
+        int word_length = cursor - word_start;
+        if (word_length >= (int)sizeof(words[word_count].message))
+        {
+            word_length = sizeof(words[word_count].message) - 1;
+        }
+        memcpy(words[word_count].message, word_start, word_length);
+        words[word_count].message[word_length] = '\0';
+
+        int word_width;
+        TTF_SizeUTF8(state->fonts.large, words[word_count].message, &word_width, &word_height);
         words[word_count].width = word_width;
+        breaks_before[word_count] = pending_breaks;
+        pending_breaks = 0;
         word_count++;
-        word = strtok(NULL, " ");
     }
 
     int letter_width = 0;
@@ -852,13 +919,21 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
     int current_message_index = 0;
     for (int i = 0; i < word_count; i++)
     {
+        // apply any forced line breaks (from newlines) that precede this word;
+        // consecutive newlines leave blank lines between the words
+        for (int b = 0; b < breaks_before[i] && current_message_index < MAIN_ROW_COUNT - 1; b++)
+        {
+            current_message_index++;
+            message_count++;
+        }
+
         if (current_message_index >= MAIN_ROW_COUNT)
         {
             break;
         }
 
         int potential_width = messages[current_message_index].width + words[i].width;
-        if (i > 0)
+        if (messages[current_message_index].width != 0)
         {
             potential_width += letter_width;
         }
@@ -868,25 +943,23 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
             strncpy(messages[current_message_index].message, words[i].message, sizeof(messages[current_message_index].message));
             messages[current_message_index].width = words[i].width;
         }
-        else if (potential_width <= FIXED_WIDTH - 2 * message_padding)
+        else if (state->disable_auto_wrap || potential_width <= FIXED_WIDTH - 2 * message_padding)
         {
-            if (messages[current_message_index].width == 0)
-            {
-                strncpy(messages[current_message_index].message, words[i].message, sizeof(messages[current_message_index].message));
-            }
-            else
-            {
-                char messageBuf[256];
-                snprintf(messageBuf, sizeof(messageBuf), "%s %s", messages[current_message_index].message, words[i].message);
-
-                strncpy(messages[current_message_index].message, messageBuf, sizeof(messages[current_message_index].message));
-            }
+            // append to the current line either because it still fits or
+            // because automatic wrapping is disabled (break only on newlines)
+            char messageBuf[1024];
+            snprintf(messageBuf, sizeof(messageBuf), "%s %s", messages[current_message_index].message, words[i].message);
+            strncpy(messages[current_message_index].message, messageBuf, sizeof(messages[current_message_index].message));
             messages[current_message_index].width += words[i].width;
         }
         else
         {
             current_message_index++;
             message_count++;
+            if (current_message_index >= MAIN_ROW_COUNT)
+            {
+                break;
+            }
             strncpy(messages[current_message_index].message, words[i].message, sizeof(messages[current_message_index].message));
             messages[current_message_index].width = words[i].width;
         }
@@ -907,15 +980,18 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
     for (int i = 0; i <= message_count; i++)
     {
         char *message = messages[i].message;
-        if (message == NULL)
+
+        // blank lines (produced by consecutive newlines) still occupy a row
+        if (message[0] == '\0')
         {
+            current_message_y += word_height + SCALE1(PADDING);
             continue;
         }
 
-        int width = messages[i].width;
         SDL_Surface *text = TTF_RenderUTF8_Blended(state->fonts.large, message, COLOR_WHITE);
         if (text == NULL)
         {
+            current_message_y += word_height + SCALE1(PADDING);
             continue;
         }
 
@@ -936,6 +1012,7 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
         }
 
         SDL_BlitSurface(text, NULL, screen, &pos);
+        SDL_FreeSurface(text);
         current_message_y += word_height + SCALE1(PADDING);
     }
     if (state->action_show && strcmp(state->action_button, "") != 0)
@@ -1030,6 +1107,7 @@ void signal_handler(int signal)
 // - --cancel-text <text> (default: "BACK")
 // - --cancel-show (default: false)
 // - --disable-auto-sleep (default: false)
+// - --disable-auto-wrap (default: false)
 // - --inaction-button <button> (default: empty string)
 // - --inaction-text <text> (default: "OTHER")
 // - --inaction-show (default: false)
@@ -1037,8 +1115,8 @@ void signal_handler(int signal)
 // - --item-key <key> (default: "items")
 // - --message <message> (default: empty string)
 // - --message-alignment <alignment> (default: middle)
-// - --font <path> (default: empty string)
-// - --font-size <size> (default: FONT_LARGE)
+// - --font-default <path> (default: empty string)
+// - --font-size-default <size> (default: FONT_LARGE)
 // - --quit-after-last-item (default: false)
 // - --show-hardware-group (default: false)
 // - --show-pill (default: false)
@@ -1069,6 +1147,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         {"show-time-left", no_argument, 0, 'T'},
         {"timeout", required_argument, 0, 't'},
         {"disable-auto-sleep", no_argument, 0, 'U'},
+        {"disable-auto-wrap", no_argument, 0, 'w'},
         {"confirm-show", no_argument, 0, 'W'},
         {"cancel-show", no_argument, 0, 'X'},
         {"action-show", no_argument, 0, 'Y'},
@@ -1077,9 +1156,9 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
 
     int opt;
     char *font_path = NULL;
-    char message[1024];
-    char alignment[1024];
-    while ((opt = getopt_long(argc, argv, "a:A:b:B:c:C:d:D:E:f:F:i:I:K:m:M:t:QPSTUWYXZ", long_options, NULL)) != -1)
+    char message[1024] = "";
+    char alignment[1024] = "";
+    while ((opt = getopt_long(argc, argv, "a:A:b:B:c:C:d:D:E:f:F:i:I:K:m:M:t:QPSTUWYXZw", long_options, NULL)) != -1)
     {
         switch (opt)
         {
@@ -1149,6 +1228,9 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         case 'U':
             state->disable_auto_sleep = true;
             break;
+        case 'w':
+            state->disable_auto_wrap = true;
+            break;
         case 'W':
             state->confirm_show = true;
             break;
@@ -1165,6 +1247,11 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
             return false;
         }
     }
+
+    // interpret backslash escapes (e.g. "\n") supplied via --message so that
+    // line breaks can be provided from the command line. JSON input handles its
+    // own escaping and is intentionally left untouched.
+    unescape_string(message);
 
     enum MessageAlignment default_alignment = MessageAlignmentMiddle;
     if (strcmp(alignment, "top") == 0)
@@ -1572,6 +1659,7 @@ int main(int argc, char *argv[])
         .confirm_show = false,
         .cancel_show = false,
         .disable_auto_sleep = false,
+        .disable_auto_wrap = false,
         .inaction_show = false,
         .quit_after_last_item = false,
         .show_time_left = false,
