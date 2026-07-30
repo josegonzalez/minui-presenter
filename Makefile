@@ -40,13 +40,13 @@ PRODUCT = $(TARGET)
 # macOS-specific configuration
 ifeq ($(PLATFORM),macos)
   INCDIR = -I. -Iplatforms/macos/include/ -Iminui/workspace/all/common/ -Iplatforms/macos/platform/ -Iinclude/ $(SDL_CFLAGS)
-  SOURCE = $(TARGET).c minui/workspace/all/common/scaler.c minui/workspace/all/common/utils.c minui/workspace/all/common/api.c platforms/macos/platform/platform.c include/parson/parson.c
+  SOURCE = $(TARGET).c minui/workspace/all/common/scaler.c minui/workspace/all/common/utils.c minui/workspace/all/common/api.c platforms/macos/platform/platform.c include/parson/parson.c include/i18n/i18n.c
   CFLAGS = $(ARCH) -fomit-frame-pointer
   CFLAGS += $(INCDIR) -DPLATFORM=\"$(PLATFORM)\" -DUSE_$(SDL) -O3 -std=gnu99 -Wno-tautological-constant-out-of-range-compare -Wno-asm-operand-widths
   FLAGS = $(LIBS) $(SDL_LIBS) -lpthread -lm -lz
 else
   INCDIR = -I. -Iplatform/$(PLATFORM)/include/ -Iminui/workspace/all/common/ -Iminui/workspace/$(PLATFORM)/platform/ -Iinclude/
-  SOURCE = $(TARGET).c minui/workspace/all/common/scaler.c minui/workspace/all/common/utils.c minui/workspace/all/common/api.c minui/workspace/$(PLATFORM)/platform/platform.c include/parson/parson.c
+  SOURCE = $(TARGET).c minui/workspace/all/common/scaler.c minui/workspace/all/common/utils.c minui/workspace/all/common/api.c minui/workspace/$(PLATFORM)/platform/platform.c include/parson/parson.c include/i18n/i18n.c
   FLAGS = -L$(LD_LIBRARY_PATH) -ldl -lmsettings $(LIBS) -l$(SDL) -l$(SDL)_image -l$(SDL)_ttf -lpthread -lm -lz
   # tg5050 uses NextUI toolchain which installs libmsettings to /opt/nextui
   ifeq ($(PLATFORM),tg5050)

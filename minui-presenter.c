@@ -20,6 +20,29 @@
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
+#include "i18n/i18n.h"
+
+// Convenience wrapper: read NextUI's persisted language code from
+// minuisettings.txt and bootstrap the i18n table once. Failure is
+// silent — T() falls back to the input string when nothing is loaded.
+static void mp_i18n_init(void)
+{
+    char path[512];
+    snprintf(path, sizeof(path), "%s/.userdata/shared/minuisettings.txt", SDCARD_PATH);
+    FILE *f = fopen(path, "r");
+    char lang[8] = "en";
+    if (f)
+    {
+        char line[128];
+        while (fgets(line, sizeof(line), f))
+        {
+            if (sscanf(line, "language=%7s", lang) == 1)
+                break;
+        }
+        fclose(f);
+    }
+    I18N_init(lang);
+}
 
 // Platform compatibility: tg5050 (NextUI) uses PWR_isOnline instead of PLAT_isOnline
 #ifdef PLATFORM_NEXTUI
@@ -1077,8 +1100,8 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
 
     int opt;
     char *font_path = NULL;
-    char message[1024];
-    char alignment[1024];
+    char message[1024] = "";
+    char alignment[1024] = "";
     while ((opt = getopt_long(argc, argv, "a:A:b:B:c:C:d:D:E:f:F:i:I:K:m:M:t:QPSTUWYXZ", long_options, NULL)) != -1)
     {
         switch (opt)
@@ -1189,7 +1212,7 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
     {
         struct ItemsState *items_state = malloc(sizeof(struct ItemsState));
         items_state->items = malloc(sizeof(struct Item) * 1);
-        items_state->items[0].text = strdup(message);
+        items_state->items[0].text = strdup(T(message));
         items_state->items[0].background_color = "#000000";
         items_state->items[0].background_image = NULL;
         items_state->items[0].image_exists = false;
@@ -1248,9 +1271,14 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         strncpy(state->action_button, "", sizeof(state->action_button));
     }
 
+    // Default button labels go through T() so they pick up the active
+    // language from NextUI's minuisettings.txt. Caller-provided values
+    // (via --action-text / --cancel-text / ...) are also translated
+    // below via mp_t_into(), so paks passing English strings inherit
+    // localisation for free as long as a matching key exists.
     if (strcmp(state->action_text, "") == 0)
     {
-        strncpy(state->action_text, "ACTION", sizeof(state->action_text));
+        strncpy(state->action_text, T("mp.btn.action"), sizeof(state->action_text));
     }
 
     if (strcmp(state->cancel_button, "") == 0)
@@ -1260,18 +1288,37 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
 
     if (strcmp(state->confirm_text, "") == 0)
     {
-        strncpy(state->confirm_text, "SELECT", sizeof(state->confirm_text));
+        strncpy(state->confirm_text, T("mp.btn.select"), sizeof(state->confirm_text));
     }
 
     if (strcmp(state->cancel_text, "") == 0)
     {
-        strncpy(state->cancel_text, "BACK", sizeof(state->cancel_text));
+        strncpy(state->cancel_text, T("mp.btn.back"), sizeof(state->cancel_text));
     }
 
     if (strcmp(state->inaction_text, "") == 0)
     {
-        strncpy(state->inaction_text, "OTHER", sizeof(state->inaction_text));
+        strncpy(state->inaction_text, T("mp.btn.other"), sizeof(state->inaction_text));
     }
+
+    // After defaults, re-translate any caller-provided text. T() returns
+    // the input unchanged when there is no matching entry, so paks that
+    // already pass localised strings (or arbitrary content like "EXIT")
+    // are unaffected — only known keys are remapped.
+    #define MP_RETRANSLATE(buf) do { \
+        if ((buf)[0] != '\0') { \
+            const char *_v = T(buf); \
+            if (_v != (buf)) { \
+                strncpy((buf), _v, sizeof(buf) - 1); \
+                (buf)[sizeof(buf) - 1] = '\0'; \
+            } \
+        } \
+    } while (0)
+    MP_RETRANSLATE(state->action_text);
+    MP_RETRANSLATE(state->confirm_text);
+    MP_RETRANSLATE(state->cancel_text);
+    MP_RETRANSLATE(state->inaction_text);
+    #undef MP_RETRANSLATE
 
     // validate that hardware buttons aren't assigned to more than once
     bool a_button_assigned = false;
@@ -1528,6 +1575,7 @@ void init()
     PAD_init();
     PWR_init();
     InitSettings();
+
 }
 
 // destruct cleans up the app state in reverse order
@@ -1593,6 +1641,12 @@ int main(int argc, char *argv[])
     strncpy(state.inaction_text, default_inaction_text, sizeof(state.inaction_text));
     strncpy(state.file, default_file, sizeof(state.file));
     strncpy(state.item_key, default_item_key, sizeof(state.item_key));
+
+    // Bootstrap i18n before argv parsing — parse_arguments calls T() on
+    // --message and the button-text args, and the table must be loaded
+    // for those lookups to hit. mp_i18n_init() only reads minuisettings
+    // and the lang files; it does not require SDL/GFX to be up.
+    mp_i18n_init();
 
     // parse the arguments
     if (!parse_arguments(&state, argc, argv))
