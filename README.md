@@ -25,6 +25,7 @@ minui-presenter --message "The quick brown fox jumps over the lazy dog"
 - `--background-color <hex-color>`: Default background color to use (default: `#000000`).
 - `--background-image <path>`: Default background image to use (default: empty string).
 - `--message <text>`: Display a single message (default: empty string)
+  - The following backslash escapes are interpreted: `\n` (newline), `\t` (tab), and `\\` (literal backslash). Use `\n` to insert a manual line break, e.g. `--message "line1\nline2"`.
 - `--message-alignment <alignment>`: Set message alignment (default: `middle`)
   - Valid values: `top`, `middle`, `bottom`
 - `--file <path>`: Path to JSON file containing messages (default: empty string)
@@ -69,6 +70,7 @@ minui-presenter --message "The quick brown fox jumps over the lazy dog"
 ### Display Options
 
 - `--disable-auto-sleep`: Disables the auto-sleep functionality (default: `false`)
+- `--disable-auto-wrap`: Disables automatic word wrapping so lines break only at manual newlines (default: `false`). Lines that are wider than the screen are not wrapped and may extend past the screen edge.
 - `--show-hardware-group`: Show hardware information group (default: `false`)
 - `--show-time-left`: Show countdown timer (default: `false`)
 - `--timeout <seconds>`: Set timeout in seconds (default: `0`, no timeout)
@@ -138,7 +140,7 @@ When multiple items are displayed, the list can be scrolled using the `LEFT` AND
 
 ### Item Properties
 
-- `text`: The message to display
+- `text`: The message to display. Text is automatically word-wrapped to fit the screen; a `\n` in the value forces a manual line break (JSON strings use standard JSON escaping). Automatic wrapping can be disabled with `--disable-auto-wrap`.
 - `background_image`: (default: null) Path to background image. Will be stretched to fill screen by aspect ratio. The image will be displayed as soon as it exists.
 - `background_color`: (default: `#000000`) Hex color code for background
 - `show_pill`: (default: `false`) Whether to show a pill around the text

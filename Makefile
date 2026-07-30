@@ -83,6 +83,12 @@ endif
 clean:
 	rm -rf $(PRODUCT)-$(PLATFORM)
 
+# Run the integration test suite with bats.
+# Requires a prior `PLATFORM=macos make` and `PLATFORM=macos make setup-resources`.
+.PHONY: test
+test:
+	bats test/
+
 # macOS resource setup - copies MinUI assets to the SDCARD_PATH location
 setup-resources: minui
 ifeq ($(PLATFORM),macos)
