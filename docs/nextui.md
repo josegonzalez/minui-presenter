@@ -24,7 +24,11 @@ The Makefile keeps the build platform id (`PLATFORM`) separate from the upstream
 
 `-DPLATFORM` is compiled into the on-device `SYSTEM_PATH` and `USERDATA_PATH` (`.system/<PLATFORM>` and `.userdata/<PLATFORM>`), so it is driven by `WORKSPACE`. A `tg5040-nextui` binary therefore reports `tg5040` at runtime and resolves the same on-card paths as the device firmware.
 
-The only source-level NextUI difference is in `minui-presenter.c`, gated by `-DPLATFORM_NEXTUI`: `PLAT_isOnline` is mapped to `PWR_isOnline` (which NextUI's SDK uses for online detection), and `FONT_PATH` points at the bundled `BPreplayBold-unhinted.otf`.
+The source-level NextUI differences live in `minui-presenter.c`, gated by `-DPLATFORM_NEXTUI`:
+
+- `PLAT_isOnline` is mapped to `PWR_isOnline`, which NextUI's SDK uses for online detection.
+- `FONT_PATH` points at the bundled `BPreplayBold-unhinted.otf` (the fallback when the theme font is unavailable).
+- the UI is re-colored and re-fonted from the user's NextUI theme (see [Theming](#theming) below).
 
 ### GLES and audio libraries
 
@@ -32,6 +36,22 @@ NextUI toolchains install `libmsettings` and the GLES stack under `/opt/nextui`.
 
 - `tg5040-nextui` and `h700-nextui`: `-lGLESv2 -lsamplerate`
 - `tg5050-nextui` and `my355-nextui`: `-lGLESv2 -lmali -lsamplerate` (their `libGLESv2` is a stub backed by a standalone mali blob that must be linked explicitly)
+
+## Theming
+
+NextUI lets the user pick theme colors and a font (stored in `minuisettings.txt`). The `-nextui` binaries honor that theme, so a `minui-presenter` screen matches the rest of the NextUI menu instead of the fixed greyscale MinUI palette. MinUI and macOS builds are unaffected: every theme reference is confined to `#ifdef PLATFORM_NEXTUI` helpers in `minui-presenter.c`, so those builds still use the greyscale palette and the bundled font and compile unchanged.
+
+Nothing new has to be initialized. The existing `GFX_init(MODE_MAIN)` call already runs the NextUI SDK's `CFG_init`, which reads the theme and populates the `THEME_COLOR*` globals and the themed font. The app just references those when drawing. The presenter's small UI maps to NextUI's color slots (`config.h`) as follows:
+
+| Theme slot (default)              | Where it is used                                                          |
+|-----------------------------------|---------------------------------------------------------------------------|
+| `COLOR_LIST_TEXT` (white)         | the message text and the `--show-time-left` readout                       |
+| `COLOR_BACKGROUND` (black)        | the default background fill, when no per-item background color is set      |
+| `COLOR_HINT` (white)              | hardware/button hints (already themed by the SDK's `GFX_blitButton*`)     |
+
+Over a background image the text stays white for legibility over arbitrary art (both builds), and the optional message pill keeps its black backdrop; the theme only applies to text drawn without a background image. The background falls back to `COLOR_BACKGROUND` only when no `background_color`/`background_image` is set; an explicit `--background-color`, a JSON `background_color`, or a `background_image` still overrides it. Fonts follow the theme when no `--font-*` override is given: the default font resolves to the NextUI theme font via `CFG_getFontFile()` (opened at the presenter's size, so `--font-size-default` keeps working), falling back to the bundled font when the theme font is missing. Under the default theme the result looks the same as the MinUI greyscale; the theme only diverges once the user customizes it.
+
+The SDL-free theming decisions (explicit-vs-theme background, legibility-vs-themed text) are factored into `presenter_theme.c` and unit tested by `test/presenter_theme_test.c` (run via `make test`). `test/makefile.bats` asserts `presenter_theme.c` is compiled into every platform.
 
 ## Building
 
@@ -46,10 +66,12 @@ This produces `minui-presenter-tg5040-nextui`.
 
 ## Testing the wiring
 
-`test/makefile.bats` asserts the per-platform Makefile wiring (upstream repo, version, workspace, `-DPLATFORM_NEXTUI`, device id, sources, and GLES libs) by introspecting the Makefile with `make print-<VAR> PLATFORM=<p>`. It needs neither a toolchain nor a cloned upstream tree:
+`test/makefile.bats` asserts the per-platform Makefile wiring (upstream repo, version, workspace, `-DPLATFORM_NEXTUI`, device id, sources, GLES libs, and that `presenter_theme.c` is compiled everywhere) by introspecting the Makefile with `make print-<VAR> PLATFORM=<p>`. It needs neither a toolchain nor a cloned upstream tree:
 
 ```bash
 bats test/makefile.bats
 ```
 
-The CI matrix builds every NextUI binary in its `savant/minui-toolchain:<device>-nextui` container, which is the integration test for the full compile and link.
+`make test` runs the SDL-free unit tests (`test/presenter_theme_test.c`, host-compiled, no toolchain or resources needed) and then the bats suites (`makefile.bats`, `newline.bats`, `theming.bats`). The binary-backed bats tests exercise the macOS build, so they need a prior `PLATFORM=macos make` and `PLATFORM=macos make setup-resources`; they cannot assert NextUI theme colors, which only apply in the `-nextui` builds.
+
+The CI matrix builds every NextUI binary in its `savant/minui-toolchain:<device>-nextui` container, which is the integration test for the full compile and link (including the theming code paths).

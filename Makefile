@@ -71,13 +71,13 @@ PRODUCT = $(TARGET)
 # macOS-specific configuration
 ifeq ($(PLATFORM),macos)
   INCDIR = -I. -Iplatforms/macos/include/ -Iminui/workspace/all/common/ -Iplatforms/macos/platform/ -Iinclude/ $(SDL_CFLAGS)
-  SOURCE = $(TARGET).c minui/workspace/all/common/scaler.c minui/workspace/all/common/utils.c minui/workspace/all/common/api.c platforms/macos/platform/platform.c include/parson/parson.c
+  SOURCE = $(TARGET).c presenter_theme.c minui/workspace/all/common/scaler.c minui/workspace/all/common/utils.c minui/workspace/all/common/api.c platforms/macos/platform/platform.c include/parson/parson.c
   CFLAGS = $(ARCH) -fomit-frame-pointer
   CFLAGS += $(INCDIR) -DPLATFORM=\"$(WORKSPACE)\" -DUSE_$(SDL) -O3 -std=gnu99 -Wno-tautological-constant-out-of-range-compare -Wno-asm-operand-widths
   FLAGS = $(LIBS) $(SDL_LIBS) -lpthread -lm -lz
 else
   INCDIR = -I. -Iplatform/$(PLATFORM)/include/ -Iminui/workspace/all/common/ -Iminui/workspace/$(WORKSPACE)/platform/ -Iinclude/
-  SOURCE = $(TARGET).c minui/workspace/all/common/scaler.c minui/workspace/all/common/utils.c minui/workspace/all/common/api.c minui/workspace/$(WORKSPACE)/platform/platform.c include/parson/parson.c
+  SOURCE = $(TARGET).c presenter_theme.c minui/workspace/all/common/scaler.c minui/workspace/all/common/utils.c minui/workspace/all/common/api.c minui/workspace/$(WORKSPACE)/platform/platform.c include/parson/parson.c
   FLAGS = -L$(LD_LIBRARY_PATH) -ldl -lmsettings $(LIBS) -l$(SDL) -l$(SDL)_image -l$(SDL)_ttf -lpthread -lm -lz
   # NextUI toolchains install libmsettings and the GLES stack to /opt/nextui.
   # api.c resamples audio through libsamplerate on every NextUI target. tg5050
@@ -127,10 +127,17 @@ clean:
 print-%:
 	@echo '$*=$($*)'
 
-# Run the integration test suite with bats.
-# Requires a prior `PLATFORM=macos make` and `PLATFORM=macos make setup-resources`.
+# Host compiler for the SDL-free unit tests (overridable, e.g. TEST_CC=clang).
+TEST_CC ?= cc
+
+# Run the test suite: the SDL-free unit tests (host-compiled, no toolchain or
+# resources needed) followed by the bats integration tests. The bats binary tests
+# require a prior `PLATFORM=macos make` and `PLATFORM=macos make setup-resources`.
 .PHONY: test
 test:
+	mkdir -p tmp
+	$(TEST_CC) -std=gnu99 -Wall -Wextra -I. test/presenter_theme_test.c presenter_theme.c -o tmp/presenter_theme_test
+	./tmp/presenter_theme_test
 	bats test/
 
 # macOS resource setup - copies MinUI assets to the SDCARD_PATH location

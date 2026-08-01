@@ -21,11 +21,70 @@
 #include "api.h"
 #include "utils.h"
 
+#include "presenter_theme.h"
+
 // Platform compatibility: tg5050 (NextUI) uses PWR_isOnline instead of PLAT_isOnline
 #ifdef PLATFORM_NEXTUI
 #define PLAT_isOnline PWR_isOnline
 #define FONT_PATH RES_PATH "/BPreplayBold-unhinted.otf"
 #endif
+
+// Theme helpers. The -nextui builds honor the user's NextUI theme (its colors and
+// font, exposed by the SDK as THEME_COLOR* / CFG_getFontFile once GFX_init loads the
+// theme), while the MinUI/macOS builds keep the greyscale palette and bundled font.
+// Every NextUI-only symbol (THEME_COLOR*, uintToColour, CFG_getFontFile) is confined
+// to these helpers behind PLATFORM_NEXTUI so the other builds compile unchanged. The
+// SDL-free decisions they lean on (text role, explicit-vs-theme background) live in
+// presenter_theme.c and are unit tested.
+
+// theme_text_color maps a foreground string's role to its color. Over a background
+// image the text stays white for legibility; otherwise NextUI uses the themed list
+// text color and MinUI keeps white.
+static SDL_Color theme_text_color(bool has_background_image)
+{
+    if (PresenterTheme_TextRole(has_background_image) == PRESENTER_TEXT_LEGIBILITY)
+        return COLOR_WHITE;
+#ifdef PLATFORM_NEXTUI
+    return uintToColour(THEME_COLOR4_255);
+#else
+    return COLOR_WHITE;
+#endif
+}
+
+// theme_background_u32 returns the default background fill. NextUI honors the theme
+// background; MinUI fills black. An explicit per-item/--background-color still
+// overrides this at the call site.
+static uint32_t theme_background_u32(SDL_Surface *dst)
+{
+#ifdef PLATFORM_NEXTUI
+    (void)dst;
+    return THEME_COLOR7;
+#else
+    return SDL_MapRGBA(dst->format, 0, 0, 0, 255);
+#endif
+}
+
+// default_font_path returns the font used when no --font-default is given. NextUI
+// honors the user's themed font; CFG_getFontFile() (valid after GFX_init's CFG_init)
+// returns just the file name, and NextUI keeps all fonts under RES_PATH. It falls
+// back to the bundled font if the theme font is unset or missing. MinUI/macOS use
+// the bundled FONT_PATH.
+static const char *default_font_path(void)
+{
+#ifdef PLATFORM_NEXTUI
+    const char *themed = CFG_getFontFile();
+    if (themed != NULL && themed[0] != '\0')
+    {
+        static char themed_path[512];
+        snprintf(themed_path, sizeof(themed_path), "%s/%s", RES_PATH, themed);
+        if (access(themed_path, F_OK) != -1)
+        {
+            return themed_path;
+        }
+    }
+#endif
+    return FONT_PATH;
+}
 
 SDL_Surface *screen = NULL;
 
@@ -735,16 +794,24 @@ SDL_Surface *scale_surface(SDL_Surface *surface,
 // draw_screen interprets the app state and draws it to the screen
 void draw_screen(SDL_Surface *screen, struct AppState *state)
 {
-    // render a background color
-    char hex_color[1024] = "#000000";
-    if (state->items_state->items[state->items_state->selected].background_color != NULL)
+    // render a background color. an explicit per-item or --background-color value
+    // wins; otherwise fall back to the theme background (black on MinUI,
+    // COLOR_BACKGROUND on NextUI).
+    const char *background_color = state->items_state->items[state->items_state->selected].background_color;
+    if (PresenterTheme_UseExplicitBackground(background_color))
     {
-        strncpy(hex_color, state->items_state->items[state->items_state->selected].background_color, sizeof(hex_color));
+        SDL_Color parsed = hex_to_sdl_color(background_color);
+        uint32_t color = SDL_MapRGBA(screen->format, parsed.r, parsed.g, parsed.b, 255);
+        SDL_FillRect(screen, NULL, color);
+    }
+    else
+    {
+        SDL_FillRect(screen, NULL, theme_background_u32(screen));
     }
 
-    SDL_Color background_color = hex_to_sdl_color(hex_color);
-    uint32_t color = SDL_MapRGBA(screen->format, background_color.r, background_color.g, background_color.b, 255);
-    SDL_FillRect(screen, NULL, color);
+    // whether a background image was actually drawn this frame; foreground text
+    // stays white over an image for legibility over arbitrary art
+    bool background_image_drawn = false;
 
     // check if there is an image and it is accessible
     if (state->items_state->items[state->items_state->selected].background_image != NULL)
@@ -796,6 +863,7 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
             }
 #endif
             SDL_FreeSurface(surface);
+            background_image_drawn = true;
         }
     }
 
@@ -839,7 +907,7 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
             snprintf(time_left_str, sizeof(time_left_str), "Time left: %d seconds", time_left);
         }
 
-        SDL_Surface *text = TTF_RenderUTF8_Blended(state->fonts.small, time_left_str, COLOR_WHITE);
+        SDL_Surface *text = TTF_RenderUTF8_Blended(state->fonts.small, time_left_str, theme_text_color(background_image_drawn));
         SDL_Rect pos = {
             SCALE1(PADDING),
             SCALE1(PADDING),
@@ -988,7 +1056,7 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
             continue;
         }
 
-        SDL_Surface *text = TTF_RenderUTF8_Blended(state->fonts.large, message, COLOR_WHITE);
+        SDL_Surface *text = TTF_RenderUTF8_Blended(state->fonts.large, message, theme_text_color(background_image_drawn));
         if (text == NULL)
         {
             current_message_y += word_height + SCALE1(PADDING);
@@ -1037,10 +1105,12 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
 
 bool open_fonts(struct AppState *state)
 {
+    // no --font-default override: use the platform default. This is resolved here
+    // (rather than in parse_arguments) because GFX_init has since run CFG_init, so
+    // the NextUI themed font is now available; MinUI/macOS use the bundled font.
     if (state->fonts.font_path == NULL)
     {
-        log_error("No font path provided");
-        return false;
+        state->fonts.font_path = strdup(default_font_path());
     }
 
     // check if the font path is valid
@@ -1277,7 +1347,9 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
         struct ItemsState *items_state = malloc(sizeof(struct ItemsState));
         items_state->items = malloc(sizeof(struct Item) * 1);
         items_state->items[0].text = strdup(message);
-        items_state->items[0].background_color = "#000000";
+        // empty means "unset": draw_screen falls back to the theme background
+        // (black on MinUI, COLOR_BACKGROUND on NextUI) unless overridden below
+        items_state->items[0].background_color = "";
         items_state->items[0].background_image = NULL;
         items_state->items[0].image_exists = false;
         items_state->items[0].show_pill = state->show_pill;
@@ -1324,10 +1396,8 @@ bool parse_arguments(struct AppState *state, int argc, char *argv[])
 
         state->fonts.font_path = strdup(font_path);
     }
-    else
-    {
-        state->fonts.font_path = strdup(FONT_PATH);
-    }
+    // otherwise leave font_path NULL; open_fonts() resolves the default (the NextUI
+    // themed font or the bundled font) once GFX_init has initialized the theme.
 
     // Apply default values for certain buttons and texts
     if (strcmp(state->action_button, "") == 0)
@@ -1633,7 +1703,9 @@ int main(int argc, char *argv[])
     char default_action_button[1024] = "";
     char default_action_text[1024] = "ACTION";
     char default_background_image[1024] = "";
-    char default_background_color[1024] = "#000000";
+    // empty means "unset": draw_screen falls back to the theme background (black on
+    // MinUI, COLOR_BACKGROUND on NextUI). An explicit --background-color overrides it.
+    char default_background_color[1024] = "";
     char default_cancel_button[1024] = "B";
     char default_cancel_text[1024] = "BACK";
     char default_confirm_button[1024] = "A";
