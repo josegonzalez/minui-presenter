@@ -21,7 +21,9 @@ Binaries are built against one of two firmwares. Most devices build against MinU
 - `tg5040` and `my355` run both firmwares, so they have a MinUI build (`minui-presenter-tg5040`, `minui-presenter-my355`) and a NextUI build (`minui-presenter-tg5040-nextui`, `minui-presenter-my355-nextui`).
 - `tg5050` and `h700` are NextUI-only and build as `minui-presenter-tg5050-nextui` and `minui-presenter-h700-nextui`.
 
-To build a NextUI variant, use its platform id inside the matching toolchain, for example `PLATFORM=tg5040-nextui make`. See [docs/nextui.md](docs/nextui.md) for the platform/toolchain matrix and how the NextUI builds are wired. For the native macOS build used by the test suite, see [docs/macos.md](docs/macos.md).
+The `-nextui` binaries honor the device's NextUI theme, re-coloring the background and message text and following the theme font instead of the fixed MinUI greyscale palette.
+
+To build a NextUI variant, use its platform id inside the matching toolchain, for example `PLATFORM=tg5040-nextui make`. See [docs/nextui.md](docs/nextui.md) for the platform/toolchain matrix, the theming details, and how the NextUI builds are wired. For the native macOS build used by the test suite, see [docs/macos.md](docs/macos.md).
 
 ## Usage
 
@@ -33,7 +35,7 @@ minui-presenter --message "The quick brown fox jumps over the lazy dog"
 
 #### Message Display
 
-- `--background-color <hex-color>`: Default background color to use (default: `#000000`).
+- `--background-color <hex-color>`: Default background color to use (default: `#000000`; on `-nextui` builds, the NextUI theme background when unset).
 - `--background-image <path>`: Default background image to use (default: empty string).
 - `--message <text>`: Display a single message (default: empty string)
   - The following backslash escapes are interpreted: `\n` (newline), `\t` (tab), and `\\` (literal backslash). Use `\n` to insert a manual line break, e.g. `--message "line1\nline2"`.
@@ -49,7 +51,7 @@ minui-presenter --message "The quick brown fox jumps over the lazy dog"
 
 ### Font Configuration
 
-- `--font-default <path>`: Path to custom font file (default: built-in font)
+- `--font-default <path>`: Path to custom font file (default: built-in font; on `-nextui` builds, the NextUI theme font when unset)
 - `--font-size-default <size>`: Font size for messages (default: `FONT_LARGE`)
 
 ### Button Configuration
@@ -153,7 +155,7 @@ When multiple items are displayed, the list can be scrolled using the `LEFT` AND
 
 - `text`: The message to display. Text is automatically word-wrapped to fit the screen; a `\n` in the value forces a manual line break (JSON strings use standard JSON escaping). Automatic wrapping can be disabled with `--disable-auto-wrap`.
 - `background_image`: (default: null) Path to background image. Will be stretched to fill screen by aspect ratio. The image will be displayed as soon as it exists.
-- `background_color`: (default: `#000000`) Hex color code for background
+- `background_color`: (default: `#000000`, or the NextUI theme background on `-nextui` builds) Hex color code for background
 - `show_pill`: (default: `false`) Whether to show a pill around the text
 - `alignment`: (default: `middle`) Message alignment ("top", "middle", "bottom")
 

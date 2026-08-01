@@ -130,3 +130,14 @@ mk() { # <VAR> <PLATFORM>
     mk SOURCE tg5040
     [[ "$output" != *'minui/workspace/all/common/config.c'* ]]
 }
+
+# issue 67: the presenter_theme module (which drives NextUI theming via SDL-free
+# decisions) is platform-agnostic and must be compiled into every binary, not just
+# the NextUI ones.
+
+@test "presenter_theme.c is compiled for both MinUI and NextUI builds" {
+    mk SOURCE tg5040
+    [[ "$output" == *'presenter_theme.c'* ]]
+    mk SOURCE tg5040-nextui
+    [[ "$output" == *'presenter_theme.c'* ]]
+}
