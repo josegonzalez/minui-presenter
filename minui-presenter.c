@@ -29,13 +29,13 @@
 #define FONT_PATH RES_PATH "/BPreplayBold-unhinted.otf"
 #endif
 
-// Theme helpers. The -nextui builds honor the user's NextUI theme (its colors and
-// font, exposed by the SDK as THEME_COLOR* / CFG_getFontFile once GFX_init loads the
-// theme), while the MinUI/macOS builds keep the greyscale palette and bundled font.
-// Every NextUI-only symbol (THEME_COLOR*, uintToColour, CFG_getFontFile) is confined
-// to these helpers behind PLATFORM_NEXTUI so the other builds compile unchanged. The
-// SDL-free decisions they lean on (text role, explicit-vs-theme background) live in
-// presenter_theme.c and are unit tested.
+// Theme helpers. The -nextui builds honor the user's NextUI theme: its colors
+// (exposed by the SDK as THEME_COLOR* once GFX_init loads the theme) and its font
+// (the SDK's font.* globals, reused in open_fonts), while the MinUI/macOS builds keep
+// the greyscale palette and bundled font. Every NextUI-only color symbol
+// (THEME_COLOR*, uintToColour) is confined to these helpers behind PLATFORM_NEXTUI so
+// the other builds compile unchanged. The SDL-free decisions they lean on (text role,
+// explicit-vs-theme background) live in presenter_theme.c and are unit tested.
 
 // theme_text_color maps a foreground string's role to its color. Over a background
 // image the text stays white for legibility; otherwise NextUI uses the themed list
@@ -62,28 +62,6 @@ static uint32_t theme_background_u32(SDL_Surface *dst)
 #else
     return SDL_MapRGBA(dst->format, 0, 0, 0, 255);
 #endif
-}
-
-// default_font_path returns the font used when no --font-default is given. NextUI
-// honors the user's themed font; CFG_getFontFile() (valid after GFX_init's CFG_init)
-// returns just the file name, and NextUI keeps all fonts under RES_PATH. It falls
-// back to the bundled font if the theme font is unset or missing. MinUI/macOS use
-// the bundled FONT_PATH.
-static const char *default_font_path(void)
-{
-#ifdef PLATFORM_NEXTUI
-    const char *themed = CFG_getFontFile();
-    if (themed != NULL && themed[0] != '\0')
-    {
-        static char themed_path[512];
-        snprintf(themed_path, sizeof(themed_path), "%s/%s", RES_PATH, themed);
-        if (access(themed_path, F_OK) != -1)
-        {
-            return themed_path;
-        }
-    }
-#endif
-    return FONT_PATH;
 }
 
 SDL_Surface *screen = NULL;
@@ -1105,12 +1083,21 @@ void draw_screen(SDL_Surface *screen, struct AppState *state)
 
 bool open_fonts(struct AppState *state)
 {
-    // no --font-default override: use the platform default. This is resolved here
-    // (rather than in parse_arguments) because GFX_init has since run CFG_init, so
-    // the NextUI themed font is now available; MinUI/macOS use the bundled font.
+    // no --font-default override: on NextUI reuse the SDK's themed fonts, which
+    // GFX_init loaded from the user's theme, so the message matches the rest of the
+    // menu; MinUI/macOS open the bundled font. GFX_init has already run by the time
+    // open_fonts is called. (A --font-default path still opens a custom font at the
+    // configured size on both builds; --font-size-default therefore applies on NextUI
+    // only alongside --font-default.)
     if (state->fonts.font_path == NULL)
     {
-        state->fonts.font_path = strdup(default_font_path());
+#ifdef PLATFORM_NEXTUI
+        state->fonts.large = font.large;
+        state->fonts.small = font.small;
+        return true;
+#else
+        state->fonts.font_path = strdup(FONT_PATH);
+#endif
     }
 
     // check if the font path is valid
