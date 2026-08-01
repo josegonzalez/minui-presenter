@@ -12,6 +12,17 @@ This is a minui presentation app. It allows displaying messages on the screen wi
 
 - todo: this is built inside-out. Ideally you can clone this into the MinUI workspace directory and build from there under each toolchain, but instead it gets cloned _into_ a toolchain workspace directory and built from there.
 
+The build platform is selected with `PLATFORM`, and the binary is named `minui-presenter-$(PLATFORM)`. For example, `PLATFORM=tg5040 make` produces `minui-presenter-tg5040`.
+
+## Supported platforms
+
+Binaries are built against one of two firmwares. Most devices build against MinUI (`shauninman/MinUI`). NextUI-specific binaries build against a NextUI toolchain and are suffixed with `-nextui`.
+
+- `tg5040` and `my355` run both firmwares, so they have a MinUI build (`minui-presenter-tg5040`, `minui-presenter-my355`) and a NextUI build (`minui-presenter-tg5040-nextui`, `minui-presenter-my355-nextui`).
+- `tg5050` and `h700` are NextUI-only and build as `minui-presenter-tg5050-nextui` and `minui-presenter-h700-nextui`.
+
+To build a NextUI variant, use its platform id inside the matching toolchain, for example `PLATFORM=tg5040-nextui make`. See [docs/nextui.md](docs/nextui.md) for the platform/toolchain matrix and how the NextUI builds are wired. For the native macOS build used by the test suite, see [docs/macos.md](docs/macos.md).
+
 ## Usage
 
 ```shell
