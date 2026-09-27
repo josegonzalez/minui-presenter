@@ -27,6 +27,9 @@ To build a NextUI variant, use its platform id inside the matching toolchain, fo
 
 ## Usage
 
+> [!WARNING]
+> stdout is not reliable for capturing output. The MinUI and NextUI internals this tool is built on log informational messages to stdout, and some platforms (for example `h700`) emit them on every run. Those lines are mixed in with the tool's output. Do not capture or parse its stdout; rely on the exit code instead.
+
 ```shell
 minui-presenter --message "The quick brown fox jumps over the lazy dog"
 ```
