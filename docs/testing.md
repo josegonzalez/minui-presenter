@@ -1,13 +1,15 @@
 # Testing
 
 Integration tests are written with [bats](https://github.com/bats-core/bats-core) and live in
-the `test/` directory. There are two kinds:
+the `test/` directory. There are three kinds:
 
 - `test/newline.bats` builds on the native macOS build and exercises the binary headlessly.
 - `test/makefile.bats` asserts the per-platform Makefile build wiring (upstream repo, version,
   workspace, `-DPLATFORM_NEXTUI`, device id, sources, and GLES libs) for the NextUI variants.
   It introspects the Makefile with `make print-<VAR> PLATFORM=<p>`, so it needs neither a
   toolchain nor the macOS binary and runs on any host with `make`. See [nextui.md](nextui.md).
+- `test/check-upstream-pins.bats` tests `scripts/check-upstream-pins.sh` with a stubbed `gh`, so
+  it runs offline. See [upstream-pins.md](upstream-pins.md).
 
 ## Prerequisites
 
