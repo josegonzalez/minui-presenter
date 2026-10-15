@@ -9,7 +9,7 @@ pin moves.
 |---|---|---|
 | `MINUI_VERSION` | `shauninman/MinUI` | every MinUI platform (`tg5040`, `my355`, `rg35xxplus`, `zero28`, and the rest of the CI matrix) |
 | `NEXTUI_VERSION` | `loveRetro/NextUI` | `tg5040-nextui` and `tg5050-nextui` |
-| `MY355_NEXTUI_VERSION` | `loveRetro/NextUI` | `my355-nextui`, which tracks the `my355-latest` branch rather than a release |
+| `MY355_NEXTUI_VERSION` | `apommel/NextUI` | `my355-nextui`, which tracks the `my355-latest-rebase` branch rather than a release |
 | `H700_VERSION` | `pvaibhav/NextUI` | `h700-nextui` |
 
 The pinned values themselves live in the Makefile and are deliberately not repeated here, so there

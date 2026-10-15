@@ -24,7 +24,7 @@ set -u
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# MY355_NEXTUI_VERSION is deliberately absent: it tracks the my355-latest branch
+# MY355_NEXTUI_VERSION is deliberately absent: it tracks the my355-latest-rebase branch
 # rather than a release (see docs/nextui.md), so there is no tag to compare.
 PINS="
 MINUI_VERSION shauninman/MinUI
