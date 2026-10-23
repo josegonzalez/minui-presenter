@@ -8,9 +8,8 @@ pin moves.
 | Makefile variable | Upstream repo | Covers |
 |---|---|---|
 | `MINUI_VERSION` | `shauninman/MinUI` | every MinUI platform (`tg5040`, `my355`, `rg35xxplus`, `zero28`, and the rest of the CI matrix) |
-| `NEXTUI_VERSION` | `loveRetro/NextUI` | `tg5040-nextui` and `tg5050-nextui` |
+| `NEXTUI_VERSION` | `loveRetro/NextUI` | `tg5040-nextui`, `tg5050-nextui`, and `h700-nextui` |
 | `MY355_NEXTUI_VERSION` | `apommel/NextUI` | `my355-nextui`, which tracks the `my355-latest-rebase` branch rather than a release |
-| `H700_VERSION` | `pvaibhav/NextUI` | `h700-nextui` |
 
 The pinned values themselves live in the Makefile and are deliberately not repeated here, so there
 is one less place for them to drift.
@@ -18,7 +17,7 @@ is one less place for them to drift.
 ## Why a stale pin matters
 
 The upstream trees are pinned by tag, so a firmware release that changes the SDK ABI does not reach
-the build until the pin moves. That is a real failure mode: `h700-rc9` turned the whole
+the build until the pin moves. That is a real failure mode: `h700-rc9` of the former h700 fork turned the whole
 `libmsettings` mute and turbo API into header-only inline stubs, so a binary built against
 `h700-rc3` still linked but died on device with `undefined symbol: GetMute`. `-lmsettings` is a
 shared library, so those symbols are resolved against the firmware's copy at load time, and nothing
@@ -27,14 +26,14 @@ in the build can see the mismatch.
 ## Checking the pins
 
 `scripts/check-upstream-pins.sh` compares each pin against the newest release of its upstream and
-exits non-zero if any differs. Prereleases count as releases (drafts do not), because the h700 fork
-publishes its firmware as prereleases, so GitHub's "latest release" can lag behind what devices run:
+exits non-zero if any differs. Prereleases count as releases (drafts do not), so a firmware shipped
+to devices as a prerelease is not missed behind GitHub's "latest release":
 
 ```bash
 bash scripts/check-upstream-pins.sh
 ```
 
-It covers `MINUI_VERSION`, `NEXTUI_VERSION`, and `H700_VERSION`. `MY355_NEXTUI_VERSION` is skipped
+It covers `MINUI_VERSION` and `NEXTUI_VERSION`. `MY355_NEXTUI_VERSION` is skipped
 because it tracks a branch rather than a release. The upstreams do not share a version scheme and
 their tags are not orderable against each other, so the script reports "differs", not "behind".
 
