@@ -14,8 +14,8 @@
 # devices as a prerelease is not missed behind GitHub's "latest release".
 #
 # Tags are not comparable as versions across these upstreams (v6.15.0,
-# v20251127-1), so this is a plain string comparison and reports "differs", not
-# "behind".
+# my355-rc.6, v20251127-1), so this is a plain string comparison and reports
+# "differs", not "behind".
 #
 # Requires the gh CLI, authenticated for read access to public repos.
 
@@ -23,11 +23,10 @@ set -u
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# MY355_NEXTUI_VERSION is deliberately absent: it tracks the my355-latest-rebase branch
-# rather than a release (see docs/nextui.md), so there is no tag to compare.
 PINS="
 MINUI_VERSION shauninman/MinUI
 NEXTUI_VERSION loveRetro/NextUI
+MY355_NEXTUI_VERSION apommel/NextUI
 "
 
 stale=0

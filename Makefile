@@ -3,7 +3,7 @@ CURRENT_WORKING_DIR = $(shell pwd)
 PLATFORM ?= tg5040
 MINUI_VERSION ?= v20251127-1
 NEXTUI_VERSION ?= v6.15.0
-MY355_NEXTUI_VERSION ?= my355-latest-rebase
+MY355_NEXTUI_VERSION ?= my355-rc.6
 
 # WORKSPACE is the upstream workspace directory name and the runtime device id
 # baked into the binary via -DPLATFORM. It matches PLATFORM for every platform
