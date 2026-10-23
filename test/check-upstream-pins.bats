@@ -33,7 +33,6 @@ EOF
 
     export GH_STUB_TAG_shauninman_MinUI="$(pin MINUI_VERSION)"
     export GH_STUB_TAG_loveRetro_NextUI="$(pin NEXTUI_VERSION)"
-    export GH_STUB_TAG_pvaibhav_NextUI="$(pin H700_VERSION)"
 }
 
 pin() { # <VAR>
@@ -45,14 +44,13 @@ pin() { # <VAR>
     [ "$status" -eq 0 ]
     [[ "$output" == *"ok      MINUI_VERSION"* ]]
     [[ "$output" == *"ok      NEXTUI_VERSION"* ]]
-    [[ "$output" == *"ok      H700_VERSION"* ]]
 }
 
 @test "reports a differing pin and exits 1 when a newer release exists" {
-    export GH_STUB_TAG_pvaibhav_NextUI="h700-rc999"
+    export GH_STUB_TAG_loveRetro_NextUI="v99.0.0"
     run bash "$REPO_ROOT/scripts/check-upstream-pins.sh"
     [ "$status" -eq 1 ]
-    [[ "$output" == *"DIFFERS H700_VERSION: pinned $(pin H700_VERSION), newest pvaibhav/NextUI release is h700-rc999"* ]]
+    [[ "$output" == *"DIFFERS NEXTUI_VERSION: pinned $(pin NEXTUI_VERSION), newest loveRetro/NextUI release is v99.0.0"* ]]
     [[ "$output" == *"ok      MINUI_VERSION"* ]]
 }
 
@@ -66,7 +64,7 @@ pin() { # <VAR>
 @test "compares against the newest release including prereleases, excluding drafts" {
     run bash "$REPO_ROOT/scripts/check-upstream-pins.sh"
     [ "$status" -eq 0 ]
-    run grep -c -- "release list --repo pvaibhav/NextUI --exclude-drafts --limit 1" "$GH_STUB_LOG"
+    run grep -c -- "release list --repo loveRetro/NextUI --exclude-drafts --limit 1" "$GH_STUB_LOG"
     [ "$output" = "1" ]
     run grep -c -- "release view" "$GH_STUB_LOG"
     [ "$output" = "0" ]
