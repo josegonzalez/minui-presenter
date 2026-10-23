@@ -9,7 +9,7 @@ pin moves.
 |---|---|---|
 | `MINUI_VERSION` | `shauninman/MinUI` | every MinUI platform (`tg5040`, `my355`, `rg35xxplus`, `zero28`, and the rest of the CI matrix) |
 | `NEXTUI_VERSION` | `loveRetro/NextUI` | `tg5040-nextui`, `tg5050-nextui`, and `h700-nextui` |
-| `MY355_NEXTUI_VERSION` | `apommel/NextUI` | `my355-nextui`, which tracks the `my355-latest-rebase` branch rather than a release |
+| `MY355_NEXTUI_VERSION` | `apommel/NextUI` | `my355-nextui` |
 
 The pinned values themselves live in the Makefile and are deliberately not repeated here, so there
 is one less place for them to drift.
@@ -33,9 +33,8 @@ to devices as a prerelease is not missed behind GitHub's "latest release":
 bash scripts/check-upstream-pins.sh
 ```
 
-It covers `MINUI_VERSION` and `NEXTUI_VERSION`. `MY355_NEXTUI_VERSION` is skipped
-because it tracks a branch rather than a release. The upstreams do not share a version scheme and
-their tags are not orderable against each other, so the script reports "differs", not "behind".
+It covers `MINUI_VERSION`, `NEXTUI_VERSION`, and `MY355_NEXTUI_VERSION`. The upstreams do not
+share a version scheme and their tags are not orderable against each other, so the script reports "differs", not "behind".
 
 The `upstream-pins` workflow runs the same script weekly and keeps a single tracking issue up to
 date, closing it once every pin matches again.
